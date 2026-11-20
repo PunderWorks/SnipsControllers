@@ -21,7 +21,7 @@ A STEP model of the assembled board is in [`step/v2.0/snips_controller.step`](st
 - **Module:** an ESP32-S3-MINI-1U-N8 on the top, between the macro buttons and USB, turned 270 degrees. The 19.2 mm WROOM-1U does not fit the 17.5 mm there. The turn puts the pinless GND edge on the side and the signal pins toward the stick, the OLED and the carrier; pins are assigned by position, as `GPIO_table.md` explains. USB runs about 15 mm as a result, which is well within full-speed limits. Bluetooth and ESP-NOW work with no other radio.
 - **XBee:** optional. U_XBEE1 is a row of 12 hand-solder pads on the bottom for a 22 x 17 mm castellated daughter board, which carries the XBee 3 Micro, its decoupling, the RESET pull-up and RC, and the ATTN/BOOTMODE pull-up. The link is UART with flow control, not SPI. RTS and DTR also allow XBee serial firmware recovery through the ESP32. Leave the area inside the pads free of parts; vias there stay tented. See `GPIO_table.md`.
 - **Reflow:** the bottom side goes first and the top side last, because Espressif requires a single reflow for the module (datasheet section 12.3). The XBee reflows on its own carrier and never goes upside down, which is what stopped the two modules from sharing this board before.
-- **Radio link:** Amidala's droids use XBee Zigbee 3.0, so a Zigbee controller needs the carrier. The firmware still has to move from the XBee's SPI interface to UART, and needs a V2 pin map.
+- **Radio link:** Amidala's droids use XBee Zigbee 3.0, so a Zigbee controller needs the carrier. V2 firmware builds with `pio run -e esp32s3_v2` (upload with `-t upload`). It talks to the XBee over UART in API mode and runs without the carrier.
 - **Programming:** USB, through the module's native USB. To force download mode, hold SW_BOOT1 while pressing the power button. RXD0's pull-up holds the latch with no firmware, so a blank board flashes after a 1 s press, with no button held during the upload.
 - **No reset button:** the power button turns the board on, and only firmware turns it off. PWR_HOLD is on RXD0, whose pull-up holds the latch through any reset or USB upload, so a blank or hung board stays on until USB and the battery are removed. Keep a watchdog running to recover from a hang. C_LATCH_FB1 gives the latch hysteresis, so that pull-up cannot restart the board at power-off, and R_PWR_EN_PD1 is 22 kΩ so a rising gate cannot couple through it and lift EN.
 - **Buttons:** all 13 connect directly to module GPIOs. See `GPIO_table.md`.
@@ -114,8 +114,8 @@ The droids use XBee Zigbee 3.0, so the controller joins that network through the
 
 Recommended bringup order:
 1. Current-limited supply on VSYS, with no carrier fitted: press power for 1 s, then check 3V3 and idle current.
-2. Flash over USB with no button held, with SW_BOOT1 held at power-on if the chip does not enumerate. Confirm `PWR_HOLD` reads high.
-3. Time the shortest press that stays on, at 3.3 V and 4.2 V. The simulation gives under 0.4 s at worst, so a 1 s press is well clear. Run a USB upload with no button held, then confirm a watchdog reset reboots the board. Power off at least 20 times, on USB and on battery, and scope `PWR_EN` and `PWR_LATCH_G`: the board must stay off every time, since the simulation's margin has not been measured.
+2. Flash `pio run -e esp32s3_v2 -t upload` over USB with no button held, with SW_BOOT1 held at power-on if the chip does not enumerate. Never flash the V1 `esp32s3` build. The serial monitor's first line should read `Snips Controller V2, firmware <commit>, reset: <reason>`, and with no carrier, `XBee carrier not found (CTS high)`. Confirm `PWR_HOLD` reads high.
+3. Time the shortest press that stays on, at 3.3 V and 4.2 V. The simulation gives under 0.4 s at worst, so a 1 s press is well clear. Run a USB upload with no button held, then type `hang` into the serial monitor: the board should reboot within about 5 s and log `reset: task watchdog`. Power off at least 20 times, on USB and on battery, and scope `PWR_EN` and `PWR_LATCH_G`: the board must stay off every time, since the simulation's margin has not been measured.
 4. OLED and ICM-42670-P on I2C.
 5. SK6812 RGB LED.
 6. Buttons, using the pin table.
@@ -132,7 +132,7 @@ Recommended bringup order:
 - Boot: press the power button for about a second → latch enables 3V3 → RXD0's pull-up holds the latch through D_OR2 as soon as the chip has power → firmware drives RXD0 high.
 - Shutdown: firmware sees a hold on IO21 → graceful shutdown → RXD0 low → the gate decays through R_LATCH_G1 → C_LATCH_FB1 kicks it clear of threshold as PWR_EN falls → power cut after about 0.8-2.6 s, counted from release if the button is still held.
 - bq25185 STAT1 and STAT2 go to IO15 and IO14 (open drain, 10kΩ pull-ups to 3V3).
-- Battery voltage: VSYS through R_VSYS1/R_VSYS2 to IO7, reading VSYS/3.
+- Battery voltage: VSYS through R_VSYS1/R_VSYS2 to IO10, reading VSYS/3.
 - Below about 3.3 V on the battery the buck passes it through, and the DRV5055's minimum is 3.0 V, so the firmware cutoff should sit above that.
 
 ## Power Management

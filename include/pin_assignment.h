@@ -19,7 +19,10 @@ namespace PinAssignment {
 
 #if defined(SNIPS_BOARD_V2)
 
-// ---- UART (XBee carrier, pads 1-6) ----------------------------------------
+// Printed at boot, so the serial log shows which pin map was flashed.
+constexpr const char *kBoardName = "V2";
+
+// ---- UART (XBee carrier, pads 1-6)----------------------------------------
 // The ESP32 transmits on the XBee's DIN and receives on its DOUT. CTS is
 // the XBee's output (low = ready); RTS is its input. With no carrier fitted
 // these float, so the transport pulls CTS, DOUT and ON/SLEEP up and treats
@@ -83,6 +86,7 @@ constexpr int kRgbLedData = 48;
 
 #else  // V1.x
 
+constexpr const char *kBoardName = "V1.x";
 
 // ---- SPI (XBee) --------------------------------------------------------
 constexpr int kXbeeSpiSck = 10;

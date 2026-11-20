@@ -12,6 +12,7 @@
 #include "calibration_store.h"
 #include "display_layout_store.h"
 #include "droid_persistence.h"
+#include "firmware_version.h"
 #include "frame_buffer.h"
 #include "icm42670p_registers.h"
 #include "imu.h"
@@ -28,6 +29,7 @@
 #include "screen.h"
 #include "screen_brightness.h"
 #include "sequence_banner.h"
+#include "serial_command.h"
 #include "snips_logo_bitmap.h"
 #include "status_led.h"
 #include "status_screen.h"
@@ -65,6 +67,7 @@ PowerConfig powerConfig;
 PowerState previousPowerState;
 bool xbeeSleepRequested = false;
 LowBatteryMonitor lowBatteryMonitor;
+SerialCommandReader serialCommandReader;
 bool wasInLowBatteryCountdown = false;
 char deviceSerialLowBuf[9] = {};  // must outlive setup() — see its use below
 bool lastReportedPressed[Buttons::kCount] = {};
@@ -248,6 +251,10 @@ void performGracefulShutdown() {
     delay(kShutdownRetryDelayMs);
   }
 
+  // Off before the spin below: the rail can stay up for seconds while the
+  // power button is still held, and a watchdog reset then would bring the
+  // board straight back up (RXD0's pull-up re-holds the latch on V2).
+  disableLoopWDT();
   digitalWrite(PinAssignment::kPowerLatchHold, LOW);
   // The rail should collapse almost immediately; spin here rather than
   // falling back into loop() in an undefined half-shutdown state in case
@@ -263,6 +270,31 @@ const char *chargeStateName(ChargeState state) {
     case ChargeState::kRecoverableFault: return "recoverable-fault";
     case ChargeState::kLatchedFault: return "latched-fault";
     default: return "unknown";
+  }
+}
+
+const char *resetReasonName(esp_reset_reason_t reason) {
+  switch (reason) {
+    case ESP_RST_POWERON: return "power-on";
+    case ESP_RST_SW: return "software";
+    case ESP_RST_PANIC: return "panic";
+    case ESP_RST_INT_WDT: return "interrupt watchdog";
+    case ESP_RST_TASK_WDT: return "task watchdog";
+    case ESP_RST_WDT: return "other watchdog";
+    case ESP_RST_BROWNOUT: return "brownout";
+    default: return "other";  // includes the USB reset that ends an upload
+  }
+}
+
+// Bring-up commands from the serial monitor (see serial_command.h).
+void handleSerialCommands() {
+  while (Serial.available() > 0) {
+    if (serialCommandReader.feed(static_cast<char>(Serial.read())) ==
+        SerialCommand::kHang) {
+      Serial.println("Hanging: the watchdog should reboot the board in 5 s.");
+      while (true) {
+      }
+    }
   }
 }
 
@@ -314,6 +346,12 @@ void setup() {
   while (!Serial && millis() - serialWaitStartMs < kSerialWaitMs) {
     delay(10);
   }
+
+  // Proof of which build is flashed, and why the chip last reset (a
+  // watchdog reset shows up here).
+  Serial.printf("Snips Controller %s, firmware %s, reset: %s\n",
+                PinAssignment::kBoardName, Firmware::kVersion,
+                resetReasonName(esp_reset_reason()));
 
   // If the battery is already at/below the critical threshold the
   // instant the device is turned on (e.g. it sat unused long enough to
@@ -476,10 +514,20 @@ void setup() {
     delay(300);
   }
   rgbLed.show(statusColor(SystemState::kDisconnected));
+
+  // Reboots the board if loop() stops returning for 5 s (the task
+  // watchdog's timeout and panic setting come from the Arduino core's
+  // sdkconfig). Needed on V2 above all: with no reset button and RXD0's
+  // pull-up holding the latch, a hung board otherwise stays on until USB
+  // and the battery are removed. Started only now, since setup()'s XBee
+  // configuration can block for several seconds.
+  enableLoopWDT();
 }
 
 void loop() {
   const unsigned long now = millis();
+
+  handleSerialCommands();
 
   const bool powerButtonHeld =
       digitalRead(PinAssignment::kPowerButtonSense) == LOW;

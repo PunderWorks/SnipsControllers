@@ -18,7 +18,8 @@ class XbeeApi {
 
   // Sends a local AT command and waits (up to timeoutMs) for the matching
   // (by frame ID) AT Command Response. Returns false on a build failure,
-  // a non-OK status, or timeout. outValue/outValueLength may be null.
+  // a non-OK status, or timeout, and at once, without writing anything,
+  // if the link isn't ready(). outValue/outValueLength may be null.
   bool sendAtCommand(const char *atCmd, const uint8_t *value,
                      uint8_t valueLength, uint8_t *outValue,
                      uint8_t outValueCapacity, uint8_t *outValueLength,
