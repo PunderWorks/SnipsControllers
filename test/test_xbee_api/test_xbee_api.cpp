@@ -13,7 +13,9 @@ class FakeLink : public XbeeLink {
   std::vector<std::vector<uint8_t>> incoming;
   std::vector<std::vector<uint8_t>> written;
   int badFrames = 0;  // returned as 0 before the queued frames
+  bool isReady = true;
 
+  bool ready() const override { return isReady; }
   bool frameAvailable() override { return badFrames > 0 || !incoming.empty(); }
   int32_t readFrame(uint8_t *buf, uint16_t maxLen) override {
     if (badFrames > 0) {
@@ -104,6 +106,20 @@ void test_at_command_times_out_with_no_reply() {
   TEST_ASSERT_TRUE(gIdles >= 20);
 }
 
+// Regression: on a V2 board with no carrier, each AT command used to wait
+// out its whole timeout, so the once-a-second RSSI query froze loop() for
+// 200 ms every second.
+void test_at_command_fails_at_once_when_link_not_ready() {
+  FakeLink link;
+  link.isReady = false;
+  link.incoming.push_back(atResponse(0x01, "DB", 0, {0x2A}));
+  XbeeApi api(&link, fakeClock, fakeIdle);
+  uint8_t value = 0;
+  TEST_ASSERT_FALSE(api.sendAtCommand("DB", nullptr, 0, &value, 1, nullptr, 200));
+  TEST_ASSERT_EQUAL(0, gIdles);
+  TEST_ASSERT_EQUAL(0, (int)link.written.size());
+}
+
 void test_at_command_truncates_value_to_capacity() {
   FakeLink link;
   link.incoming.push_back(atResponse(0x01, "ID", 0, {1, 2, 3, 4}));
@@ -173,6 +189,7 @@ int main(int argc, char **argv) {
   RUN_TEST(test_at_command_skips_other_frames_and_ids);
   RUN_TEST(test_at_command_error_status_fails);
   RUN_TEST(test_at_command_times_out_with_no_reply);
+  RUN_TEST(test_at_command_fails_at_once_when_link_not_ready);
   RUN_TEST(test_at_command_truncates_value_to_capacity);
   RUN_TEST(test_send_packet_wraps_payload_in_transmit_request);
   RUN_TEST(test_send_packet_drops_oversized_payload);

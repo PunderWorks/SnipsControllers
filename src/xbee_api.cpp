@@ -7,6 +7,10 @@ bool XbeeApi::sendAtCommand(const char *atCmd, const uint8_t *value,
                             uint8_t outValueCapacity,
                             uint8_t *outValueLength,
                             unsigned long timeoutMs) {
+  // No module: fail now. Waiting out the timeout here would stall loop()
+  // for 200 ms on every once-a-second RSSI query.
+  if (!link_->ready()) return false;
+
   constexpr uint8_t kFrameId = 0x01;
   uint8_t requestFrame[64];
   const uint16_t requestLength = XbeeFrame::buildAtCommandFrame(

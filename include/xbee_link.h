@@ -10,6 +10,10 @@ class XbeeLink {
  public:
   virtual ~XbeeLink() = default;
 
+  // False when there is no module to talk to (V2 with no carrier fitted),
+  // so AT commands fail at once instead of waiting out their timeout.
+  virtual bool ready() const { return true; }
+
   // True if at least one frame may be waiting to be read.
   virtual bool frameAvailable() = 0;
 

@@ -28,6 +28,7 @@ class XbeeUart : public XbeeLink, public XbeeUartPort {
  public:
   void begin();
   bool present() const { return present_; }
+  bool ready() const override { return present_ || setUp_; }
 
   bool frameAvailable() override;
   int32_t readFrame(uint8_t *buf, uint16_t maxLen) override;
