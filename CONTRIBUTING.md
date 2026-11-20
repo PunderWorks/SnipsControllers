@@ -4,7 +4,7 @@ Thanks for your interest in contributing! Here's how to get started.
 
 ## Reporting bugs and requesting features
 
-Please open an issue in the [issue tracker](https://github.com/thePunderWoman/SnipsControllers/issues). Include:
+Please open an issue in the [issue tracker](https://github.com/PunderWorks/SnipsControllers/issues). Include:
 
 - A clear description of the problem or request
 - Steps to reproduce for bugs, or the use case for feature requests
@@ -13,7 +13,7 @@ Please open an issue in the [issue tracker](https://github.com/thePunderWoman/Sn
 
 1. **Fork** the repo and create a feature branch from `main`.
 2. Make your changes. See the guidelines below.
-3. **Open a pull request** targeting `main` on `thePunderWoman/SnipsControllers`.
+3. **Open a pull request** targeting `main` on `PunderWorks/SnipsControllers`.
 
 All changes go through PRs — direct pushes to `main` are not accepted.
 
