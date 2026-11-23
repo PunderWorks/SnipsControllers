@@ -1892,8 +1892,8 @@ TRIG2_PARAMS = [
     ('trig_post_d', '2.9 mm', 'pivot post diameter (D shape, as v1.1)'),
     ('trig_post_flat', '0.55 mm', 'pivot post flat depth, on the +z side'),
     ('trig_bore_clr', '0.15 mm', 'hub bore clearance per side around the post'),
-    ('trig_sock_l', '-10.35 mm', 'left post socket end (x), 0.5 mm into the left column wall; the post rests on the left lip (trig_lip_x1)'),
-    ('trig_sock_r', '9.8 mm', 'right post socket end (x), 0.7 mm into the right column wall'),
+    ('trig_sock_l', '-10.35 mm', 'left post socket end (x) in the drop position; the closed pocket behind it takes the post when it slides left'),
+    ('trig_sock_r', '11.05 mm', 'right post socket end (x): room for the post to be dropped in 0.5 mm (trig_lk_slide) right of its locked position'),
     ('trig_sock_clr', '0.15 mm', 'socket clearance per side around the post'),
     ('trig_post_x0', 'trig_sock_l + 0.15 mm', 'post left end'),
     ('trig_post_x1', 'trig_sock_r - 0.15 mm', 'post right end'),
@@ -2004,6 +2004,7 @@ def build_trigger_post(root, des):
     c = new_component(root, 'TriggerPost')
     sk, prof = _d_profile(c, des, 'Trigger post D', 'trig_post_d', 'trig_post_d / 2 - trig_post_flat')
     ext(c, prof, 'trig_post_x1 - trig_post_x0', FE.NewBodyFeatureOperation, 'Trigger post', start='trig_post_x0')
+    build_post_lock_ends(c, des, 'trig')
     c.bRepBodies.item(0).name = 'TriggerPost'
     return c
 
@@ -2016,6 +2017,57 @@ def build_trigger_sockets(c, des, body):
         circle_at(sk, des, '-(trig_piv_z)', 'trig_piv_y', 'trig_post_d + 2 * trig_sock_clr')
         rect4(sk, des, '-(trig_slot_ztop)', '-(trig_piv_z)', 'trig_piv_y - trig_post_d / 2 - trig_sock_clr', 'trig_piv_y + trig_post_d / 2 + trig_sock_clr')
         ext(c, all_profiles(sk), '(%s) - (%s)' % (x1, x0), FE.CutFeatureOperation, 'Trigger socket ' + nm, start=x0, target=body)
+    build_post_lock_shell(c, des, body, 'trig')
+
+# ------------------------------------------------- post slide-lock (replaces the loose TriggerCaps) ----
+# The trigger, post and spring are assembled first and dropped straight into the U-slots with the post's neck lined up
+# with two small lips; the post is then pushed lk_slide to the left: its left end goes into a closed pocket, its end collar
+# goes under the lips. Nothing flexes; only friction resists sliding back.
+def add_lock_params(des, p):
+    up = des.userParameters
+    for n, e, cm in (
+        ('lk_slide', '0.5 mm', 'post slide from the drop position to the locked position (toward -x)'),
+        ('lk_c', '10.1 mm', 'lip / post neck centre (x) in the drop position'),
+        ('lk_lip_w', '0.6 mm', 'lip width (x)'),
+        ('lk_gap', '2.3 mm', 'gap between the two lips (y): clears the neck, stops the end collar'),
+        ('lk_neck_d', '2.0 mm', 'post neck diameter'),
+        ('lk_neck_w', '0.9 mm', 'post neck width (x): lip width + 0.15 mm each side'),
+        ('lk_lip_dz', '0.93 mm', 'lip underside height above the pivot axis (0.05 mm over the collar at the lip edge)'),
+        ('lk_lip_top', '1.5 mm', 'lip top (z)'),
+        ('lk_collar_x0', '9.1 mm', 'post: round end piece starts here (x)')):
+        nm = '%s_%s' % (p, n)
+        pr = up.itemByName(nm)
+        if pr is None: up.add(nm, VI(e), 'mm', cm)
+        else: pr.expression = e
+
+
+def build_post_lock_shell(c, des, body, p):
+    """Closed pocket past the left socket + the two lips over the right socket (drop-then-slide post retention)."""
+    add_lock_params(des, p)
+    sk = c.sketches.add(c.yZConstructionPlane); sk.name = 'Post pocket left'
+    circle_at(sk, des, '-(%s_piv_z)' % p, '%s_piv_y' % p, '%s_post_d + 2 * %s_sock_clr' % (p, p))
+    ext(c, all_profiles(sk), '%s_lk_slide' % p, FE.CutFeatureOperation, 'Post pocket left', neg=True, start='%s_sock_l' % p, target=body)
+    half = '(%s_post_d / 2 + %s_sock_clr + 0.2 mm)' % (p, p)
+    left, right = '-(%s_lk_lip_top)' % p, '-(%s_piv_z + %s_lk_lip_dz)' % (p, p)
+    for nm, y0, y1 in (('front', '%s_piv_y + %s_lk_gap / 2' % (p, p), '%s_piv_y + %s' % (p, half)),
+                       ('rear', '%s_piv_y - %s' % (p, half), '%s_piv_y - %s_lk_gap / 2' % (p, p))):
+        sk = c.sketches.add(c.yZConstructionPlane); sk.name = 'Post lip ' + nm
+        rect4(sk, des, left, right, y0, y1)
+        ext(c, all_profiles(sk), '%s_lk_lip_w' % p, FE.JoinFeatureOperation, 'Post lip ' + nm, start='%s_lk_c - %s_lk_lip_w / 2' % (p, p), target=body)
+
+
+def build_post_lock_ends(c, des, p, dprofile_name=None):
+    """Post: round end piece (the D flat would let the end slip under the lips) and the neck ring cut."""
+    add_lock_params(des, p)
+    sk = c.sketches.add(c.yZConstructionPlane); sk.name = 'Post end piece'
+    circle_at(sk, des, '-(%s_piv_z)' % p, '%s_piv_y' % p, '%s_post_d' % p)
+    ext(c, all_profiles(sk), '%s_post_x1 - %s_lk_collar_x0' % (p, p), FE.JoinFeatureOperation, 'Post end piece', start='%s_lk_collar_x0' % p, target=c.bRepBodies.item(0))
+    sk = c.sketches.add(c.yZConstructionPlane); sk.name = 'Post neck'
+    c1 = circle_at(sk, des, '-(%s_piv_z)' % p, '%s_piv_y' % p, '%s_post_d + 1 mm' % p)
+    c2 = sk.sketchCurves.sketchCircles.addByCenterRadius(c1.centerSketchPoint, ev_cm(des, '%s_lk_neck_d' % p) / 2)
+    sk.sketchDimensions.addDiameterDimension(c2, P3(0.0, 0.0, 0.0)).parameter.expression = '%s_lk_neck_d' % p
+    ring = profile_by_loops(sk, 2)[0]
+    ext(c, ring, '%s_lk_neck_w' % p, FE.CutFeatureOperation, 'Post neck', start='%s_lk_c - %s_lk_neck_w / 2' % (p, p), target=c.bRepBodies.item(0))
 
 
 # ---------------------------------------------------------------- torsion spring mount (v2) ----
@@ -2173,12 +2225,6 @@ SLOT_CAP_PARAMS = [
     ('trig_pil_y1', '22.7 mm', 'rib pillar: front edge (keeps 0.3 mm clear of the right screw head well)'),
     ('trig_pil_zb0', '-9.6 mm', 'rib pillar bottom z at y = trig_rib_y0 (buried 1.3 mm in the ramp floor)'),
     ('trig_pil_zb1', '-7.1 mm', 'rib pillar bottom z at y = trig_pil_y1 (buried 1.3 mm in the ramp floor)'),
-    ('trig_cap_clr', '0.05 mm', 'post cap: clearance to the socket end'),
-    ('trig_cap_t_l', '0.45 mm', 'post cap thickness, left socket'),
-    ('trig_cap_t_r', '0.6 mm', 'post cap thickness, right socket'),
-    ('trig_cap_w', '3.0 mm', 'post cap width (socket is trig_post_d + 2 * trig_sock_clr = 3.2)'),
-    ('trig_cap_nub', '0.1 mm', 'post cap: friction nub protrusion each side'),
-    ('trig_cap_gap', '0.1 mm', 'post cap: clearance above the post and below the PCB'),
 ]
 
 
@@ -2233,29 +2279,6 @@ def build_rib_pillar(c, des, body):
     poly_pts(sk, des, [('-(trig_rib_z0 - 0.2 mm)', 'trig_rib_y0'), ('-(trig_rib_z0 - 0.2 mm)', 'trig_pil_y1'),
                        ('-(trig_pil_zb1)', 'trig_pil_y1'), ('-(trig_pil_zb0)', 'trig_rib_y0')])
     ext(c, all_profiles(sk), 'trig_pil_x1 - trig_pil_x0', FE.JoinFeatureOperation, 'Rib pillar', start='trig_pil_x0', target=body)
-
-
-def build_post_caps(root, des):
-    """Component 'TriggerCaps': a thin cap above each post end, filling the gap between post and PCB (0.1 mm each way).
-    Friction nubs on the sides hold it in the socket. Printed flat, loose parts."""
-    add_slot_cap_params(des)
-    c = new_component(root, 'TriggerCaps')
-    zt = '-(pcb_bot_z - trig_cap_gap)'                                   # sketch x_s = -z
-    zb = '-(trig_piv_z + trig_post_d / 2 + trig_cap_gap)'
-    y0, y1 = 'trig_piv_y - trig_cap_w / 2', 'trig_piv_y + trig_cap_w / 2'
-    for nm, start, t in (('left', 'trig_sock_l + trig_cap_clr', 'trig_cap_t_l'),
-                         ('right', 'trig_sock_r - trig_cap_t_r - trig_cap_clr', 'trig_cap_t_r')):
-        sk = c.sketches.add(c.yZConstructionPlane); sk.name = 'Post cap %s' % nm
-        rect4(sk, des, zt, zb, y0, y1)
-        f = ext(c, all_profiles(sk), t, FE.NewBodyFeatureOperation, 'Post cap %s' % nm, start=start)
-        body = f.bodies.item(0); body.name = 'PostCap_%s' % nm
-        # friction nub: a short bar across the plate, protruding trig_cap_nub each side (axis along y)
-        sk = c.sketches.add(c.xZConstructionPlane); sk.name = 'Post cap nub %s' % nm
-        xa = '(%s) + 0.1 mm' % start; xb = '(%s) + (%s) - 0.1 mm' % (start, t)
-        rect4(sk, des, xa, xb, '-(trig_piv_z + 2.4 mm)', '-(trig_piv_z + 1.8 mm)')      # XZ sketch (x, y_s = -z)
-        ext(c, all_profiles(sk), 'trig_cap_w + 2 * trig_cap_nub', FE.JoinFeatureOperation, 'Post cap nub %s' % nm,
-            start='trig_piv_y - trig_cap_w / 2 - trig_cap_nub', target=body)
-    return c
 
 
 # ---------------------------------------------------------------- pouch-cell variant (BottomShell_Pouch)
@@ -2493,8 +2516,8 @@ PT2_PARAMS = [
     ('pt_post_d', '2.9 mm', 'pivot post diameter (D shape, as v1.1)'),
     ('pt_post_flat', '0.55 mm', 'pivot post flat depth, on the +z side'),
     ('pt_bore_clr', '0.15 mm', 'hub bore clearance per side around the post'),
-    ('pt_sock_l', '-10.35 mm', 'left post socket end (x), 0.5 mm into the left column wall; the post rests on the left lip (trig_lip_x1)'),
-    ('pt_sock_r', '9.8 mm', 'right post socket end (x), 0.7 mm into the right column wall'),
+    ('pt_sock_l', '-10.35 mm', 'left post socket end (x) in the drop position; the closed pocket behind it takes the post when it slides left'),
+    ('pt_sock_r', '11.05 mm', 'right post socket end (x): room for the post to be dropped in 0.5 mm (trig_lk_slide) right of its locked position'),
     ('pt_sock_clr', '0.15 mm', 'socket clearance per side around the post'),
     ('pt_post_x0', 'pt_sock_l + 0.15 mm', 'post left end'),
     ('pt_post_x1', 'pt_sock_r - 0.15 mm', 'post right end'),
@@ -2606,6 +2629,7 @@ def build_pt_post(root, des):
     c = new_component(root, 'TriggerPost_Pouch')
     sk, prof = _pt_d_profile(c, des, 'Trigger post D', 'pt_post_d', 'pt_post_d / 2 - pt_post_flat')
     ext(c, prof, 'pt_post_x1 - pt_post_x0', FE.NewBodyFeatureOperation, 'Trigger post', start='pt_post_x0')
+    build_post_lock_ends(c, des, 'pt')
     c.bRepBodies.item(0).name = 'TriggerPost_Pouch'
     return c
 
@@ -2618,6 +2642,7 @@ def build_pt_sockets(c, des, body):
         circle_at(sk, des, '-(pt_piv_z)', 'pt_piv_y', 'pt_post_d + 2 * pt_sock_clr')
         rect4(sk, des, '-(pt_slot_ztop)', '-(pt_piv_z)', 'pt_piv_y - pt_post_d / 2 - pt_sock_clr', 'pt_piv_y + pt_post_d / 2 + pt_sock_clr')
         ext(c, all_profiles(sk), '(%s) - (%s)' % (x1, x0), FE.CutFeatureOperation, 'Trigger socket ' + nm, start=x0, target=body)
+    build_post_lock_shell(c, des, body, 'pt')
 
 
 # ---------------------------------------------------------------- torsion spring mount (v2) ----
@@ -2772,12 +2797,6 @@ PT_SLOT_CAP_PARAMS = [
     ('pt_pil_y1', '22.7 mm', 'rib pillar: front edge (keeps 0.3 mm clear of the right screw head well)'),
     ('pt_pil_zb0', '-9.6 mm', 'rib pillar bottom z at y = pt_rib_y0 (buried 1.3 mm in the ramp floor)'),
     ('pt_pil_zb1', '-7.1 mm', 'rib pillar bottom z at y = pt_pil_y1 (buried 1.3 mm in the ramp floor)'),
-    ('pt_cap_clr', '0.05 mm', 'post cap: clearance to the socket end'),
-    ('pt_cap_t_l', '0.45 mm', 'post cap thickness, left socket'),
-    ('pt_cap_t_r', '0.6 mm', 'post cap thickness, right socket'),
-    ('pt_cap_w', '3.0 mm', 'post cap width (socket is pt_post_d + 2 * pt_sock_clr = 3.2)'),
-    ('pt_cap_nub', '0.1 mm', 'post cap: friction nub protrusion each side'),
-    ('pt_cap_gap', '0.1 mm', 'post cap: clearance above the post and below the PCB'),
 ]
 
 
@@ -2832,32 +2851,6 @@ def build_pt_rib_pillar(c, des, body):
     poly_pts(sk, des, [('-(pt_rib_z0 - 0.2 mm)', 'pt_rib_y0'), ('-(pt_rib_z0 - 0.2 mm)', 'pt_pil_y1'),
                        ('-(pt_pil_zb1)', 'pt_pil_y1'), ('-(pt_pil_zb0)', 'pt_rib_y0')])
     ext(c, all_profiles(sk), 'pt_pil_x1 - pt_pil_x0', FE.JoinFeatureOperation, 'Rib pillar', start='pt_pil_x0', target=body)
-
-
-def build_pt_post_caps(root, des):
-    """Component 'TriggerCaps': a thin cap above each post end, filling the gap between post and PCB (0.1 mm each way).
-    Friction nubs on the sides hold it in the socket. Printed flat, loose parts."""
-    add_pt_slot_cap_params(des)
-    c = new_component(root, 'TriggerCaps_Pouch')
-    zt = '-(pcb_bot_z - pt_cap_gap)'                                   # sketch x_s = -z
-    zb = '-(pt_piv_z + pt_post_d / 2 + pt_cap_gap)'
-    y0, y1 = 'pt_piv_y - pt_cap_w / 2', 'pt_piv_y + pt_cap_w / 2'
-    for nm, start, t in (('left', 'pt_sock_l + pt_cap_clr', 'pt_cap_t_l'),
-                         ('right', 'pt_sock_r - pt_cap_t_r - pt_cap_clr', 'pt_cap_t_r')):
-        sk = c.sketches.add(c.yZConstructionPlane); sk.name = 'Post cap %s' % nm
-        rect4(sk, des, zt, zb, y0, y1)
-        f = ext(c, all_profiles(sk), t, FE.NewBodyFeatureOperation, 'Post cap %s' % nm, start=start)
-        body = f.bodies.item(0); body.name = 'PostCap_%s' % nm
-        # friction nub: a short bar across the plate, protruding pt_cap_nub each side (axis along y)
-        sk = c.sketches.add(c.xZConstructionPlane); sk.name = 'Post cap nub %s' % nm
-        xa = '(%s) + 0.1 mm' % start; xb = '(%s) + (%s) - 0.1 mm' % (start, t)
-        rect4(sk, des, xa, xb, '-(pt_piv_z + 2.4 mm)', '-(pt_piv_z + 1.8 mm)')      # XZ sketch (x, y_s = -z)
-        ext(c, all_profiles(sk), 'pt_cap_w + 2 * pt_cap_nub', FE.JoinFeatureOperation, 'Post cap nub %s' % nm,
-            start='pt_piv_y - pt_cap_w / 2 - pt_cap_nub', target=body)
-    return c
-
-
-
 
 
 def build_pt_front_rounding(comp, des):

@@ -8,7 +8,7 @@ use slicer supports where noted. Source of truth: `../../fusion/SnipsShell_v2.f3
 |---|---|---|
 | TopShell | seam rim on the bed (as modelled) | slicer supports for the roof (face buttons, thumbstick bump) |
 | BottomShell | belly down, open side up (as modelled) | **yes, under the trigger scoop**: the scoop slopes 33/35/21 deg above horizontal (57/55/69 deg overhang), so supports are needed there. Add a **brim**: the bottom ~1.8 mm of the 6 mm belly fillet is steeper than 45 deg. Everything else (rib pillar, spring groove, post sockets) prints without supports |
-| BottomShell_Pouch | belly down, open side up (as modelled) | same as BottomShell: slicer supports under the trigger scoop plus a brim for the belly fillet (expected, not yet test-printed). 30.3 mm tall instead of 33.7 mm. Uses `TriggerPost`/`TriggerCaps`; no BatteryPanel |
+| BottomShell_Pouch | belly down, open side up (as modelled) | same as BottomShell: slicer supports under the trigger scoop plus a brim for the belly fillet (expected, not yet test-printed). 30.3 mm tall instead of 33.7 mm. Uses `TriggerPost`; no BatteryPanel |
 | BatteryPanel | outer face on the bed | none (short hook tabs; add a little support if your slicer complains) |
 | Bumper | front face on the bed | none expected |
 | PowerButton | pusher end on the bed, stem up (flange overhangs 0.6 mm per side) | none |
@@ -16,12 +16,11 @@ use slicer supports where noted. Source of truth: `../../fusion/SnipsShell_v2.f3
 | SideButtonL1/L2, R1/R2 | flat base on the bed, D stem up | none |
 | Trigger | big flat blade face on the bed, spring ear up | none expected |
 | Trigger_Pouch | big flat blade face on the bed, spring ear up | none expected. Pouch variant only (use `Trigger` with `BottomShell`) |
-| TriggerPost | D flat on the bed, post lying along X | none |
-| TriggerCaps | two thin plates (0.45 mm left, 0.6 mm right) laid flat side by side, 4 mm apart, in one STL/STEP | none. They are loose parts: slide them into the sockets after the post and PCB are in; the 0.1 mm nubs give a friction fit |
+| TriggerPost | lying along X, round side down, flat up (round end collar + neck, so the D flat can no longer face the bed) | none; use a brim, the round bottom has a thin first-layer contact. Assembly: put the post through the trigger hub and spring, drop trigger + post straight into the sockets with the neck between the two lips, then slide the post toward the left (-X) about 0.5 mm until it stops: the left end enters a closed pocket, the end collar goes under the lips |
 
 ## Variants
 Standard build: `BottomShell` + `Trigger` + `BatteryPanel` (14500 cell). Pouch build: `BottomShell_Pouch` + `Trigger_Pouch` (YDL103035
-pouch cell, no BatteryPanel). TopShell, buttons, Bumper, TriggerPost and TriggerCaps are shared. Overall size: 35.0 x 80.65 mm,
+pouch cell, no BatteryPanel). TopShell, buttons, Bumper and TriggerPost are shared. Overall size: 35.0 x 80.65 mm,
 33.70 mm tall (standard) vs 30.32 mm (pouch), measured flat top surface to flat bottom.
 
 ## Wrist strap anchor

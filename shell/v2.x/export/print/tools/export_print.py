@@ -40,17 +40,3 @@ for n, (rots, note) in C.ORI.items():
     write(os.path.join(P.OUT_STL, n + '.stl'), t, n)
     sz = t.reshape(-1, 3).max(0) - t.reshape(-1, 3).min(0)
     print('%-13s %.1f x %.1f x %.1f  %s' % (n, sz[0], sz[1], sz[2], note))
-
-# TriggerCaps: split the two lumps, lay each flat, place side by side
-m = trimesh.load(os.path.join(P.SRC_STL, 'TriggerCaps.stl'))
-lumps = sorted(m.split(only_watertight=False), key=lambda b: b.centroid[0])
-assert len(lumps) == 2, len(lumps)
-parts = [orient(b.triangles, C.CAPS_ROT) for b in lumps]
-parts = [centre_xy(p) for p in parts]
-w = [p[:, :, 0].max() - p[:, :, 0].min() for p in parts]
-parts[0][:, :, 0] -= (w[0] + C.CAPS_GAP) / 2
-parts[1][:, :, 0] += (w[1] + C.CAPS_GAP) / 2
-allt = np.concatenate(parts)
-write(os.path.join(P.OUT_STL, 'TriggerCaps.stl'), allt, 'TriggerCaps')
-sz = allt.reshape(-1, 3).max(0) - allt.reshape(-1, 3).min(0)
-print('%-13s %.1f x %.1f x %.1f  two plates flat on the bed' % ('TriggerCaps', sz[0], sz[1], sz[2]))
