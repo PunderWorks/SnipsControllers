@@ -42,6 +42,6 @@ Print files regenerated for the new/changed parts only (unchanged print STEPs we
   - Face buttons: D flat 2.1 -> 1.5 mm from the axis, flat clearance 0.15 (`fb_flat_clr`): about +-4.5 degrees of rotation (was +-8).
   - Bumper: press travel 0.5 -> 2.5 mm; cap stands 3.5 mm proud (was 1.5). The PCB edge is the hard stop for the flange.
   - "Li-ion 14500 only" 1.8 -> 2.2 mm; engraving depth 0.5 -> 0.6 mm.
-  - Ceiling +1 mm (`top_z` 16.2 -> 17.2; shell is now 34.70 / 31.32 mm tall) and face-button guide tubes shortened (`fb_tube_frac` 0.33 -> 0.21, tube bottom z 14.3, above the OLED glass top 14.0) so the screen can tilt in.
+  - OLED room: PCB screw posts 1 mm shorter (`post_top_z` 10.5 -> 9.5). The overall shell height is unchanged (an earlier attempt raised `top_z` by 1 mm and was reverted).
   - Trigger post sockets 0.5 mm deeper each side (`trig_sock_l/r`, `pt_sock_l/r`); post is 1 mm longer.
   - Top-shell screw holes: no blockage found in CAD (all four pilot holes, wells and bores clear).

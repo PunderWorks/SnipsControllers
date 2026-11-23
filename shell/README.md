@@ -36,7 +36,7 @@ Width and length are identical; only the height differs.
 | Extra parts | `BatteryPanel`, contact clip, contacts block | none |
 | **Width** | 35.0 mm | 35.0 mm |
 | **Length** | 80.65 mm | 80.65 mm |
-| **Height, flat top surface to flat bottom** | **34.70 mm** | **31.32 mm** |
+| **Height, flat top surface to flat bottom** | **33.70 mm** | **30.32 mm** |
 | Height incl. thumbstick bump | 39.0 mm | 35.62 mm |
 
 Height is measured from the flat shell surface (not the thumbstick bump) to the bottom flat surface, so the pouch

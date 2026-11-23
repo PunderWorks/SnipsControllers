@@ -8,7 +8,7 @@ use slicer supports where noted. Source of truth: `../../fusion/SnipsShell_v2.f3
 |---|---|---|
 | TopShell | seam rim on the bed (as modelled) | slicer supports for the roof (face buttons, thumbstick bump) |
 | BottomShell | belly down, open side up (as modelled) | **yes, under the trigger scoop**: the scoop slopes 33/35/21 deg above horizontal (57/55/69 deg overhang), so supports are needed there. Add a **brim**: the bottom ~1.8 mm of the 6 mm belly fillet is steeper than 45 deg. Everything else (rib pillar, spring groove, post sockets) prints without supports |
-| BottomShell_Pouch | belly down, open side up (as modelled) | same as BottomShell: slicer supports under the trigger scoop plus a brim for the belly fillet (expected, not yet test-printed). 31.3 mm tall instead of 34.7 mm. Uses `TriggerPost`/`TriggerCaps`; no BatteryPanel |
+| BottomShell_Pouch | belly down, open side up (as modelled) | same as BottomShell: slicer supports under the trigger scoop plus a brim for the belly fillet (expected, not yet test-printed). 30.3 mm tall instead of 33.7 mm. Uses `TriggerPost`/`TriggerCaps`; no BatteryPanel |
 | BatteryPanel | outer face on the bed | none (short hook tabs; add a little support if your slicer complains) |
 | Bumper | front face on the bed | none expected |
 | PowerButton | pusher end on the bed, stem up (flange overhangs 0.6 mm per side) | none |
@@ -22,7 +22,7 @@ use slicer supports where noted. Source of truth: `../../fusion/SnipsShell_v2.f3
 ## Variants
 Standard build: `BottomShell` + `Trigger` + `BatteryPanel` (14500 cell). Pouch build: `BottomShell_Pouch` + `Trigger_Pouch` (YDL103035
 pouch cell, no BatteryPanel). TopShell, buttons, Bumper, TriggerPost and TriggerCaps are shared. Overall size: 35.0 x 80.65 mm,
-34.70 mm tall (standard) vs 31.32 mm (pouch), measured flat top surface to flat bottom.
+33.70 mm tall (standard) vs 30.32 mm (pouch), measured flat top surface to flat bottom.
 
 ## Wrist strap anchor
 `BottomShell` and `BottomShell_Pouch` each have two vertical 1.5 x 3.4 mm slots through the rear-left corner (2.2 mm bar between

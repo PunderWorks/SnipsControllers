@@ -379,7 +379,7 @@ SCREW_PARAMS = [
     ('screw_len', '12 mm', 'M2 self-tapping screw length'), ('post_engage', '4 mm', 'Screw thread engagement in the top post'),
     ('screw_head_seat_z', 'pcb_top_z + post_engage - screw_len', 'Height of the screw head seat (bottom of the head well)'),
     ('post_r', '3.6 mm', 'Post / column radius (merges with the side walls)'),
-    ('post_top_z', '10.5 mm', 'Top of the PCB posts (clears the OLED module underside)'),
+    ('post_top_z', '9.5 mm', 'Top of the PCB posts (was 10.5; 1 mm shorter gives the OLED more room when it is tipped in)'),
     ('pilot_d', '1.7 mm', 'Self-tapping pilot hole diameter'), ('screw_clr_d', '2.4 mm', 'Screw shaft clearance bore'),
     ('head_well_d', '4.6 mm', 'Screw head / driver well diameter'),
 ]
@@ -928,7 +928,7 @@ FB_PARAMS = [
     ('fb_cap_fillet', '0.4 mm', 'Cap top edge fillet'),
     ('fb_flange_top', 'fb_switch_top + fb_flange_t', 'Flange top z'),
     ('fb_tube_full_bot', 'fb_switch_top + fb_flange_t0 + fb_free', 'Unshortened guide tube bottom z'),
-    ('fb_tube_frac', '0.21', 'Fraction of the original tube length kept (0.21 puts the tube bottom at z 14.3, above the OLED glass top 14.0, so the screen can tilt in)'),
+    ('fb_tube_frac', '0.33', 'Fraction of the original tube length kept'),
     ('fb_tube_bot', '(top_z - roof_t) - fb_tube_frac * ((top_z - roof_t) - fb_tube_full_bot)', 'Guide tube bottom z (shortened)'),
     ('fb_cap_top', 'top_z + fb_proud', 'Cap top z'),
 ]
