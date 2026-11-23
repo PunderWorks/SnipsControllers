@@ -59,3 +59,8 @@ Print files regenerated for the new/changed parts only (unchanged print STEPs we
   - Wire hole through the forward bulkhead: 3.5 mm round at x 0, z -8.4 (`bay_wire_hole_d`, `bay_wire_hole_len`), beside the trigger, for the negative spring lead.
   - Positive (rear) contact clip snap hooks: cheek posts + ramped lugs (`bay_hook_ov` 0.4, `bay_hook_gap` 0.1, `bay_hook_h` 0.9, `bay_hook_y1`) retain the clip against the shoulders.
   - Checked: single solid body, no new interference (existing crush ribs only), STL watertight. BottomShell_Pouch unaffected.
+
+2026-11-23 (later still): battery polarity text legibility (BottomShell standard only)
+  - Print 2 text was unreadable: Arial Bold stems about one 0.4 mm line wide, counters filled in. Now Arial Black (`POL_FONT`), marks and note 2.9 mm high (ledge 3.45 mm wide), depth unchanged at 0.6 mm.
+  - Note split across the ledges: "LI-ION" on the right, "14500" on the left. Live `pol_edge` (2.4 mm) synced into the lib.
+  - Checked: heightmap of both ledges shows all glyphs inside the ledge, no breakthrough; single body, STL watertight.

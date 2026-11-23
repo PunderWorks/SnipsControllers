@@ -3070,14 +3070,15 @@ def build_bay_ceiling(c, des, body):
 # panel off and the cell in. Palm (rear) end is +, trigger (front) end is -. The note goes on the right ledge. Text is sketched on
 # the ledge face itself, so it reads correctly from below, reading rear -> front with its tops toward the centre line.
 POL_PARAMS = [
-    ('pol_h', '2.2 mm', 'polarity mark text height'),
-    ('pol_note_h', '2.2 mm', 'cell note text height'),
+    ('pol_h', '2.9 mm', 'polarity mark text height (ledge is 3.45 mm wide)'),
+    ('pol_note_h', '2.9 mm', 'cell note text height'),
     ('pol_depth', '0.6 mm', 'engraving depth (ledge is 1.6 mm thick)'),
     ('pol_x', '(bay_cell_d / 2 + bay_trench_clr + bay_pan_w / 2 + bay_pan_clr) / 2', 'x of the ledge centre line (abs)'),
     ('pol_y_lo', 'bay_seal_ys', 'rear end of the visible ledge (wide zone start)'),
     ('pol_y_hi', 'bay_pan_y1 + bay_pan_clr', 'front end of the visible ledge'),
-    ('pol_edge', '1.8 mm', 'centre of the + and - marks from the ledge ends'),
+    ('pol_edge', '2.4 mm', 'centre of the + and - marks from the ledge ends'),
 ]
+POL_FONT = 'Arial Black'   # heavy stems (about 0.6 to 0.8 mm) so they print as 1.5 to 2 lines with a 0.4 mm nozzle
 POL_CAP = 0.5   # baseline offset as a fraction of text height (Fusion text height = the full glyph height, so centre the glyphs)
 
 
@@ -3135,7 +3136,7 @@ def _pol_text(sk, des, text, h_expr, side, yc_expr, len_expr, zf=None):
     else:
         raise RuntimeError('sketch v axis is reversed relative to model y; path would read front to rear')
     ti = sk.sketchTexts.createInput2(text, hv)
-    ti.fontName = 'Arial'; ti.textStyle = adsk.fusion.TextStyles.TextStyleBold
+    ti.fontName = POL_FONT; ti.textStyle = adsk.fusion.TextStyles.TextStyleBold
     ti.setAsAlongPath(line, True, adsk.core.HorizontalAlignments.CenterHorizontalAlignment, 0)
     t = sk.sketchTexts.add(ti)
     t.heightParameter.expression = h_expr      # bind the glyph height to the user parameter
@@ -3143,15 +3144,15 @@ def _pol_text(sk, des, text, h_expr, side, yc_expr, len_expr, zf=None):
 
 
 def build_bay_polarity(c, des, body, sides=(1, -1)):
-    """Engrave + / - at the two ends of both ledges, and the cell note on the right ledge."""
+    """Engrave + / - at the two ends of both ledges, and the cell note split across the ledges (LI-ION right, 14500 left)."""
     add_pol_params(des)
-    for side, nm, note in [t for t in ((1, 'Polarity marks right ledge', True), (-1, 'Polarity marks left ledge', False)) if t[0] in sides]:
+    for side, nm, note in [t for t in ((1, 'Polarity marks right ledge', 'LI-ION'), (-1, 'Polarity marks left ledge', '14500')) if t[0] in sides]:
         sk = c.sketches.add(ledge_face(body, side)); sk.name = nm
         texts = adsk.core.ObjectCollection.create()
         texts.add(_pol_text(sk, des, '+', 'pol_h', side, 'pol_y_lo + pol_edge', '3 mm'))
         texts.add(_pol_text(sk, des, '\u2212', 'pol_h', side, 'pol_y_hi - pol_edge', '3 mm'))
         if note:
-            texts.add(_pol_text(sk, des, 'Li-ion 14500 only', 'pol_note_h', side, '(pol_y_lo + pol_y_hi) / 2', '19 mm'))
+            texts.add(_pol_text(sk, des, note, 'pol_note_h', side, '(pol_y_lo + pol_y_hi) / 2', '19 mm'))
         ext(c, texts, 'pol_depth', FE.CutFeatureOperation, 'Engrave ' + nm.lower(), neg=True, target=body)
 
 
