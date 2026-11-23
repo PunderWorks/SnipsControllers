@@ -8,7 +8,7 @@ ORI = {
     # pouch-cell variant (replaces BottomShell + BatteryPanel + Trigger; TriggerPost, TriggerCaps and the top-side parts are shared)
     'BottomShell_Pouch': ([], '+Z up (as modelled): belly on the bed, open side up (scoop needs supports)'),
     'Bumper':       ([('x', -90)], 'front face on the bed'),
-    'PowerButton':  ([('x', -90)], 'flange on the bed, stem up'),
+    'PowerButton':  ([('x', -90)], 'pusher end on the bed, stem up (flange overhangs 0.6 mm per side)'),
     'SideButtonL1': ([('y', 90)], 'flat base on the bed, D stem up'),
     'SideButtonL2': ([('y', 90)], 'flat base on the bed, D stem up'),
     'SideButtonR1': ([('y', -90)], 'flat base on the bed, D stem up'),

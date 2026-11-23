@@ -531,7 +531,7 @@ def build_usb_bezel(comp, des, name_prefix, target, keep_above):
     """Closed stadium tube inside the shell around the plug pocket. keep_above=True keeps z >= seam gap (top shell),
     False keeps z <= lap seam (bottom shell). Needs the 'USB plug pocket' / 'USB plug notch (bottom)' sketch in comp."""
     up = des.userParameters
-    for n, e, c in [('usb_bezel_t', '1 mm', 'USB bezel tube wall thickness'),
+    for n, e, c in [('usb_bezel_t', '1.6 mm', 'USB bezel tube wall thickness (was 1.0; thicker so it survives support removal)'),
                     ('usb_bezel_split_top', 'lap_h + 0.2 mm', 'Top-shell bezel starts here (z), leaves the seam gap'),
                     ('usb_bezel_split_bot', 'lap_h - seam_clr', 'Bottom-shell bezel ends here (z)')]:
         if up.itemByName(n) is None:
@@ -569,16 +569,20 @@ PWR_PARAMS = [
     ('pwr_act_gap', '0.2 mm', 'Gap between flange front face and actuator tip at rest'),
     ('pwr_stem', '4 mm', 'Button stem square size (also the cap size)'),
     ('pwr_bore_clr', '0.2 mm', 'Stem-to-bore clearance per side'),
-    ('pwr_tube_wall', '1.2 mm', 'Guide tube wall'),
-    ('pwr_flange_w', '6.4 mm', 'Button flange width (x)'),
-    ('pwr_flange_h', '6 mm', 'Button flange height (z)'),
+    ('pwr_tube_wall', '1.4 mm', 'Guide tube wall (was 1.2; outer bottom must stay above the bottom-shell lap, z 1.8)'),
+    ('pwr_flange_w', '5.2 mm', 'Button flange width (x); narrowed so it clears the curved rear-left corner wall'),
+    ('pwr_flange_h', '6.4 mm', 'Button flange height (z)'),
+    ('pwr_flange_off', '0.2 mm', 'Flange centre offset in +x from the stem axis (rear-left corner wall curves in)'),
+    ('pwr_set_back', '3 mm', 'Flange set back (rearward) from the actuator; a pusher stem spans the gap so the button installs past the mh3 screw post'),
+    ('pwr_post_flat_y', '-37.3 mm', 'mh3 post is flattened on its rear side to this y over the stem corridor (button install clearance)'),
+    ('pwr_corr_margin', '0.6 mm', 'Install corridor margin per side beyond the stem'),
     ('pwr_flange_t', '1.2 mm', 'Button flange thickness (y)'),
     ('pwr_stop_gap', '0.4 mm', 'Flange free travel back to the guide tube end'),
-    ('pwr_floor_y', '-48.95 mm', 'Floor of the button channel in the rear wall'),
+    ('pwr_floor_y', '-49.45 mm', 'Floor of the button channel in the rear wall (was -48.95: leaves a 1.2 mm wall behind the cap recess)'),
     ('pwr_cap_out', '0.6 mm', 'Cap face protrudes this far from the channel floor'),
     ('pwr_chan_w', '5.2 mm', 'Button channel width (x)'),
     ('pwr_chan_h', '6 mm', 'Button channel height (z)'),
-    ('pwr_flange_front_y', 'pwr_act_y - pwr_act_gap', 'Flange front face y'),
+    ('pwr_flange_front_y', 'pwr_act_y - pwr_act_gap - pwr_set_back', 'Flange front face y'),
     ('pwr_flange_rear_y', 'pwr_flange_front_y - pwr_flange_t', 'Flange rear face y'),
     ('pwr_tube_end_y', 'pwr_flange_rear_y - pwr_stop_gap', 'Guide tube front end y'),
     ('pwr_cap_y', 'pwr_floor_y - pwr_cap_out', 'Cap face y'),
@@ -617,15 +621,26 @@ def build_power_guide(top_comp, des):
         start='y_rear_out - 1 mm', target=body)
 
 
+def build_power_post_relief(top_comp, des):
+    """Flatten the rear of the mh3 screw post over the power-button stem corridor so the button (flange set back,
+    pusher stem forward) can be installed from the inside."""
+    add_pwr_params(des)
+    sk = top_comp.sketches.add(top_comp.xYConstructionPlane); sk.name = 'Power post relief'
+    rect4(sk, des, 'pwr_x - pwr_stem / 2 - pwr_corr_margin', 'pwr_x + pwr_stem / 2 + pwr_corr_margin',
+          'pwr_post_flat_y - 2.5 mm', 'pwr_post_flat_y')
+    ext(top_comp, main_profile(sk), 'pwr_stem + 2 * pwr_corr_margin', FE.CutFeatureOperation, 'Power post relief',
+        start='pwr_z - pwr_stem / 2 - pwr_corr_margin', target=top_comp.bRepBodies.item(0))
+
+
 def build_power_button(root, des):
     """Separate printed part: flat flanged base + square stem whose end is the cap."""
     add_pwr_params(des)
     comp = new_component(root, 'PowerButton')
     sk = comp.sketches.add(comp.xZConstructionPlane); sk.name = 'Button stem'
     zrect(sk, des, 'pwr_x', 'pwr_z', 'pwr_stem', 'pwr_stem')
-    ext(comp, main_profile(sk), 'pwr_flange_rear_y - pwr_cap_y', FE.NewBodyFeatureOperation, 'Button stem', start='pwr_cap_y')
+    ext(comp, main_profile(sk), 'pwr_act_y - pwr_act_gap - pwr_cap_y', FE.NewBodyFeatureOperation, 'Button stem', start='pwr_cap_y')
     sk = comp.sketches.add(comp.xZConstructionPlane); sk.name = 'Button flange'
-    zrect(sk, des, 'pwr_x', 'pwr_z', 'pwr_flange_w', 'pwr_flange_h')
+    zrect(sk, des, 'pwr_x + pwr_flange_off', 'pwr_z', 'pwr_flange_w', 'pwr_flange_h')
     ext(comp, main_profile(sk), 'pwr_flange_t', FE.JoinFeatureOperation, 'Button flange', start='pwr_flange_rear_y')
     comp.bRepBodies.item(0).name = 'PowerButton'
     return comp
@@ -645,7 +660,7 @@ PIPE_PARAMS = [
     ('pipe_end_z', '9 mm', 'Height of the horizontal exit run'),
     ('pipe_r', '18 mm', 'Light pipe bend radius'),
     ('pipe_bore', '2 mm', 'Light pipe bore for 1.75 mm filament'),
-    ('pipe_wall', '0.6 mm', 'Light pipe tube wall'),
+    ('pipe_wall', '1.2 mm', 'Light pipe tube wall (was 0.6: solid block that reads as a feature, not support)'),
 ]
 
 
@@ -710,7 +725,7 @@ def shape_power_cap(root, des):
     up = des.userParameters
     if up.itemByName('pwr_proud') is None:
         up.add('pwr_proud', VI('0.5 mm'), 'mm', 'Cap stands this far proud of the rear skin')
-    up.itemByName('pwr_cap_out').expression = '2.2 mm'
+    up.itemByName('pwr_cap_out').expression = '1.7 mm'
     occ = [o for o in root.occurrences if o.component.name == 'PowerButton'][0]
     comp = occ.component
     occ.activate()
@@ -898,7 +913,8 @@ FB_PARAMS = [
     ('mac_py', '7.21 mm', 'Macro button pitch in y (PCB measured 7.21)'),
     ('mac_cy1', '-7.32 mm', 'Front macro row centre y (PCB measured)'),
     ('fb_cap_d', '5 mm', 'Face button cap / stem diameter (D stem is this circle with one flat)'),
-    ('fb_flat', '2.1 mm', 'D flat distance from the stem axis (flat toward the rear)'),
+    ('fb_flat', '1.5 mm', 'D flat distance from the stem axis (flat toward the rear); deeper D (was 2.1) so buttons cannot rotate'),
+    ('fb_flat_clr', '0.15 mm', 'Clearance on the D flat only (tighter than fb_clr; about +-4.5 degrees of rotation)'),
     ('fb_clr', '0.2 mm', 'Stem clearance per side in the hole / bore'),
     ('fb_flange_d', '6 mm', 'Button flange diameter'),
     ('fb_flange_t0', '1 mm', 'Original flange thickness (sets the unshortened tube bottom)'),
@@ -912,7 +928,7 @@ FB_PARAMS = [
     ('fb_cap_fillet', '0.4 mm', 'Cap top edge fillet'),
     ('fb_flange_top', 'fb_switch_top + fb_flange_t', 'Flange top z'),
     ('fb_tube_full_bot', 'fb_switch_top + fb_flange_t0 + fb_free', 'Unshortened guide tube bottom z'),
-    ('fb_tube_frac', '0.33', 'Fraction of the original tube length kept'),
+    ('fb_tube_frac', '0.21', 'Fraction of the original tube length kept (0.21 puts the tube bottom at z 14.3, above the OLED glass top 14.0, so the screen can tilt in)'),
     ('fb_tube_bot', '(top_z - roof_t) - fb_tube_frac * ((top_z - roof_t) - fb_tube_full_bot)', 'Guide tube bottom z (shortened)'),
     ('fb_cap_top', 'top_z + fb_proud', 'Cap top z'),
 ]
@@ -973,7 +989,7 @@ def build_face_guides(top_comp, des):
             sk.sketchDimensions.addDiameterDimension(c, P3(c.centerSketchPoint.geometry.x + 2, c.centerSketchPoint.geometry.y + 2, 0)).parameter.expression = 'fb_tube_od'
     ext(top_comp, all_profiles(sk), 'top_z - 0.2 mm - fb_tube_bot', FE.JoinFeatureOperation, 'Face button guide tubes', start='fb_tube_bot', target=body)
     sk = top_comp.sketches.add(top_comp.xYConstructionPlane); sk.name = 'Face bores'
-    _fb_grid(sk, des, lambda cx, cy: _fb_d(sk, des, cx, cy, 'fb_cap_d + 2 * fb_clr', 'fb_flat + fb_clr'))
+    _fb_grid(sk, des, lambda cx, cy: _fb_d(sk, des, cx, cy, 'fb_cap_d + 2 * fb_clr', 'fb_flat + fb_flat_clr'))
     ext(top_comp, all_profiles(sk), 'top_z - roof_t - (fb_tube_bot - 0.5 mm)', FE.CutFeatureOperation, 'Face button D bores', start='fb_tube_bot - 0.5 mm', target=body)
     sk = top_comp.sketches.add(top_comp.xYConstructionPlane); sk.name = 'Face holes'
     _fb_grid(sk, des, lambda cx, cy: _fb_circle(sk, cx, cy, ev_cm(des, 'fb_cap_d + 2 * fb_clr')))
@@ -1201,8 +1217,8 @@ BUMP2_PARAMS = [
     ('bm_cap_w', '24 mm', 'Cap width (x)'),
     ('bm_cap_h', '8 mm', 'Cap height (z)'),
     ('bm_cap_r', '2 mm', 'Cap corner radius'),
-    ('bm_proud', '1.5 mm', 'Cap face stands this far proud of the front skin'),
-    ('bm_travel', '0.5 mm', 'Gap between the front skin and the cap underside = press travel'),
+    ('bm_proud', '3.5 mm', 'Cap face stands this far proud of the front skin'),
+    ('bm_travel', '2.5 mm', 'Gap between the front skin and the cap underside = press travel'),
     ('bm_cap_fillet', '0.4 mm', 'Cap face edge fillet'),
     ('bm_wall_in_y', 'y_front_out - wall', 'Front wall inner face y'),
     ('bm_wall_out_y', 'y_front_out', 'Front wall outer face y'),
@@ -1317,6 +1333,8 @@ BAY_PARAMS = [
     ('bay_bulk_t', 'bay_front_y + 1.55 mm - (bay_pan_y1 + bay_pan_clr)', 'hook pad depth: from the opening front edge to the back of the front holder'),
     ('bay_bulk_x0', 'bay_blk_w / 2 + bay_hold_clr + bay_hold_w', 'hook pads start at the front contact holder cheek outer face'),
     ('bay_bulk_top_z', '-12.0 mm', 'front hook bulkhead top'),
+    ('bay_lip_len', '1.4 mm', 'rear lip: tongue past the panel rear edge, tucked under the curved rear belly so the panel cannot drop into the bay'),
+    ('bay_lip_t', '0.4 mm', 'rear lip thickness (up from the belly plane)'),
 ]
 
 
@@ -1536,6 +1554,15 @@ def build_bay_panel(root, des):
         _bump_tri(sk, des, sgn, '0 mm')
         ext(comp, main_profile(sk), 'bay_bump_len', FE.JoinFeatureOperation, 'Panel detent %s' % nm, start='bay_pan_step_y + bay_bump_off', target=body)
     return comp
+
+
+def build_bay_panel_lip(comp, des):
+    """Rear lip on the battery panel: a thin tongue past the rear edge, tail width, tucked under the curved rear belly.
+    Stops the panel dropping into the bay (the front hooks only hold the other end)."""
+    add_bay_params(des)
+    body = comp.bRepBodies.item(0)
+    sk = _xy_rects(comp, des, 'Panel rear lip', [('-(bay_pan_nw / 2)', 'bay_pan_nw / 2', 'bay_pan_y0 - bay_lip_len', 'bay_pan_y0 + 0.5 mm')])
+    ext(comp, main_profile(sk), 'bay_lip_t', FE.JoinFeatureOperation, 'Panel rear lip', start='-bot_d', target=body)
 
 
 def build_bay_grooves(bot_comp, des, body):
@@ -1820,8 +1847,8 @@ TRIG2_PARAMS = [
     ('trig_post_d', '2.9 mm', 'pivot post diameter (D shape, as v1.1)'),
     ('trig_post_flat', '0.55 mm', 'pivot post flat depth, on the +z side'),
     ('trig_bore_clr', '0.15 mm', 'hub bore clearance per side around the post'),
-    ('trig_sock_l', '-10.35 mm', 'left post socket end (x), 0.5 mm into the left column wall'),
-    ('trig_sock_r', '9.8 mm', 'right post socket end (x), 0.7 mm into the right column wall'),
+    ('trig_sock_l', '-10.85 mm', 'left post socket end (x), 1.0 mm into the left column wall (0.45 mm wall left to the screw bore)'),
+    ('trig_sock_r', '10.3 mm', 'right post socket end (x), 1.2 mm into the right column wall'),
     ('trig_sock_clr', '0.15 mm', 'socket clearance per side around the post'),
     ('trig_post_x0', 'trig_sock_l + 0.15 mm', 'post left end'),
     ('trig_post_x1', 'trig_sock_r - 0.15 mm', 'post right end'),
@@ -2423,8 +2450,8 @@ PT2_PARAMS = [
     ('pt_post_d', '2.9 mm', 'pivot post diameter (D shape, as v1.1)'),
     ('pt_post_flat', '0.55 mm', 'pivot post flat depth, on the +z side'),
     ('pt_bore_clr', '0.15 mm', 'hub bore clearance per side around the post'),
-    ('pt_sock_l', '-10.35 mm', 'left post socket end (x), 0.5 mm into the left column wall'),
-    ('pt_sock_r', '9.8 mm', 'right post socket end (x), 0.7 mm into the right column wall'),
+    ('pt_sock_l', '-10.85 mm', 'left post socket end (x), 1.0 mm into the left column wall (0.45 mm wall left to the screw bore)'),
+    ('pt_sock_r', '10.3 mm', 'right post socket end (x), 1.2 mm into the right column wall'),
     ('pt_sock_clr', '0.15 mm', 'socket clearance per side around the post'),
     ('pt_post_x0', 'pt_sock_l + 0.15 mm', 'post left end'),
     ('pt_post_x1', 'pt_sock_r - 0.15 mm', 'post right end'),
@@ -3019,8 +3046,8 @@ def build_bay_ceiling(c, des, body):
 # the ledge face itself, so it reads correctly from below, reading rear -> front with its tops toward the centre line.
 POL_PARAMS = [
     ('pol_h', '2.2 mm', 'polarity mark text height'),
-    ('pol_note_h', '1.8 mm', 'cell note text height'),
-    ('pol_depth', '0.5 mm', 'engraving depth (ledge is 1.6 mm thick)'),
+    ('pol_note_h', '2.2 mm', 'cell note text height'),
+    ('pol_depth', '0.6 mm', 'engraving depth (ledge is 1.6 mm thick)'),
     ('pol_x', '(bay_cell_d / 2 + bay_trench_clr + bay_pan_w / 2 + bay_pan_clr) / 2', 'x of the ledge centre line (abs)'),
     ('pol_y_lo', 'bay_seal_ys', 'rear end of the visible ledge (wide zone start)'),
     ('pol_y_hi', 'bay_pan_y1 + bay_pan_clr', 'front end of the visible ledge'),
