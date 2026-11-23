@@ -332,6 +332,7 @@ MOUNT_PARAMS = [
     ('oled_pad_sz', '4 mm', 'OLED tape pad: width (x) of each corner pad'),
     ('oled_tape_t', '0.15 mm', 'OLED double-sided tape thickness between pad and PCB'),
     ('oled_peg_d', '1.8 mm', 'OLED locating peg diameter (module hole is 2.0)'),
+    ('oled_peg_len', '0.7 mm', 'OLED locating peg length below the pad underside (short: the module is slid in over the posts, then lifted onto the pegs)'),
 ]
 
 
@@ -361,7 +362,7 @@ def build_oled_mount(top_comp, des):
     profs = adsk.core.ObjectCollection.create()
     for p in sk.profiles:
         profs.add(p)
-    feats.append(ext(top_comp, profs, 'oled_pcb_t + oled_tape_t - 0.1 mm', FE.JoinFeatureOperation, 'OLED pegs', neg=True, start=z_pad))
+    feats.append(ext(top_comp, profs, 'oled_peg_len', FE.JoinFeatureOperation, 'OLED pegs', neg=True, start=z_pad))
     col = adsk.core.ObjectCollection.create()
     for f in feats:
         col.add(f)
@@ -379,7 +380,8 @@ SCREW_PARAMS = [
     ('screw_len', '12 mm', 'M2 self-tapping screw length'), ('post_engage', '4 mm', 'Screw thread engagement in the top post'),
     ('screw_head_seat_z', 'pcb_top_z + post_engage - screw_len', 'Height of the screw head seat (bottom of the head well)'),
     ('post_r', '3.6 mm', 'Post / column radius (merges with the side walls)'),
-    ('post_top_z', '9.5 mm', 'Top of the PCB posts (was 10.5; 1 mm shorter gives the OLED more room when it is tipped in)'),
+    ('post_top_z', '8.5 mm', 'Top of the PCB posts (was 10.5). The OLED slides in over the posts at PCB-bottom z 8.5..10.0 (glass must stay under the front pads / face tubes), so shorter posts widen that window'),
+    ('post_web_trim', '1.1 mm', 'Rear-left post web stops this far inside the post circle on the rear side: 0.3 mm in front of the power button post flat (pwr_post_flat_y), so the web never touches the button install path'),
     ('pilot_d', '1.7 mm', 'Self-tapping pilot hole diameter'), ('screw_clr_d', '2.4 mm', 'Screw shaft clearance bore'),
     ('head_well_d', '4.4 mm', 'Screw head / driver well diameter'),
 ]
@@ -424,9 +426,23 @@ def build_top_posts(top_comp, des):
     sk = top_comp.sketches.add(top_comp.xYConstructionPlane); sk.name = 'PCB posts'
     hole_circles(sk, des, '2 * post_r')
     ext(top_comp, all_profiles(sk), 'post_top_z - pcb_top_z', FE.JoinFeatureOperation, 'PCB posts', start='pcb_top_z')
+    build_post_webs(top_comp, des)
     sk = top_comp.sketches.add(top_comp.xYConstructionPlane); sk.name = 'Post pilot holes'
     hole_circles(sk, des, 'pilot_d')
     ext(top_comp, all_profiles(sk), 'post_engage + 1 mm', FE.CutFeatureOperation, 'Post pilot holes', start='pcb_top_z', target=top_comp.bRepBodies.item(0))
+
+
+def build_post_webs(top_comp, des):
+    """The two rear PCB posts only touched the side wall tangentially. Extend each into the wall (full post width, flat sides)
+    so the post becomes a U shape with a solid connection. Rear-left web stops short of the power button stem corridor."""
+    up = des.userParameters
+    for n, e, c in SCREW_PARAMS:
+        if up.itemByName(n) is None:
+            up.add(n, VI(e), 'mm', c)
+    sk = top_comp.sketches.add(top_comp.xYConstructionPlane); sk.name = 'PCB post wall webs'
+    rect4(sk, des, '-(shell_w / 2 - wall / 2)', 'mh3_x', 'mh3_y - post_r + post_web_trim', 'mh3_y + post_r')
+    rect4(sk, des, 'mh4_x', 'shell_w / 2 - wall / 2', 'mh4_y - post_r', 'mh4_y + post_r')
+    ext(top_comp, all_profiles(sk), 'post_top_z - pcb_top_z', FE.JoinFeatureOperation, 'PCB post wall webs', start='pcb_top_z')
 
 
 def build_bottom_columns(bot_comp, des, d='bot_d'):

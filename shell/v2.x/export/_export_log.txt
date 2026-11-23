@@ -47,3 +47,10 @@ Print files regenerated for the new/changed parts only (unchanged print STEPs we
     (`trig_lip_x1` -9.65 mm, from the head-well edge, full depth up to the socket floor) now carries the post. Sockets back to -10.35 / 9.8 mm,
     screw head wells 4.6 -> 4.4 mm (`head_well_d`). Re-exported BottomShell, BottomShell_Pouch, TriggerPost, TriggerCaps.
   - Top-shell screw holes: no blockage found in CAD (all four pilot holes, wells and bores clear).
+
+2026-11-23 (later): OLED install path (branch shell-print-fixes-2). Re-exported TopShell only (stl, step, print/stl, print/step) and the f3d archive.
+  - The OLED is taped to four roof pads with locating pegs and has to be slid in over the PCB posts, then lifted onto the pegs. A rigid-body path search (TemporaryBRepManager, TopShell vs OLED PCB + glass) found no path with 9.5 mm posts, 1.25 mm pegs and the light pipe exit at z 9.
+  - PCB posts 9.5 -> 8.5 mm (`post_top_z`); OLED pegs 1.25 -> 0.5 mm (`oled_peg_len`, new); light pipe exit 9 -> 7.9 mm (`pipe_end_z`).
+  - Rear PCB posts (mh3, mh4) are now U shaped: a web the full post width runs into the side wall (`PCB post wall webs`, `post_web_trim` 1.1 keeps the rear-left web clear of the power button post flat).
+  - Result: a collision-free path exists (enter 15 mm forward at 4-5 degrees rear-up, slide back while rising, level out, lift 0.75 mm onto the pegs), no scrapes at 0.25 mm / 1 mm / 1 degree steps.
+  - Not needed after all: face-button tube relief and rear USB plate trim (the 4 degree rear-up tilt clears both).
