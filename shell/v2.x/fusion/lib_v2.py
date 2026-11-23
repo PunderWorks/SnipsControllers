@@ -332,7 +332,7 @@ MOUNT_PARAMS = [
     ('oled_pad_sz', '4 mm', 'OLED tape pad: width (x) of each corner pad'),
     ('oled_tape_t', '0.15 mm', 'OLED double-sided tape thickness between pad and PCB'),
     ('oled_peg_d', '1.8 mm', 'OLED locating peg diameter (module hole is 2.0)'),
-    ('oled_peg_len', '0.7 mm', 'OLED locating peg length below the pad underside (short: the module is slid in over the posts, then lifted onto the pegs)'),
+    ('oled_peg_len', '0.5 mm', 'OLED locating peg length below the pad underside (short: the module is slid in over the posts, then lifted onto the pegs)'),
 ]
 
 
@@ -673,7 +673,7 @@ PIPE_PARAMS = [
     ('pipe_x', '-6.6 mm', 'Light pipe axis x'),
     ('pipe_start_y', '-39 mm', 'Light pipe start (filament end) y, above the LED'),
     ('pipe_end_y', '-48.3 mm', 'Where the curved part ends and the pipe turns horizontal'),
-    ('pipe_end_z', '9 mm', 'Height of the horizontal exit run'),
+    ('pipe_end_z', '7.9 mm', 'Height of the horizontal exit run'),
     ('pipe_r', '18 mm', 'Light pipe bend radius'),
     ('pipe_bore', '2 mm', 'Light pipe bore for 1.75 mm filament'),
     ('pipe_wall', '1.2 mm', 'Light pipe tube wall (was 0.6: solid block that reads as a feature, not support)'),
@@ -3214,3 +3214,55 @@ def build_bay_retention(c, des, body):
                                                         ('%s' % xc, '%s + bay_hold_w + 0.2 mm' % xc, y0, y1)])
         ext(c, all_profiles(sk), 'bay_ret_wire_d + 0.5 mm', FE.CutFeatureOperation, 'Bay %s wire relief' % nm,
             start='bay_hold_top_z - bay_ret_wire_d', target=body)
+
+
+# ---------------------------------------------------------------- battery contact fixes (print test 2) ----
+# 1. Wire hole through the front holder backing, centred on the spring contact's pin (x 0, cell axis): the wire is soldered to the
+#    pin end and goes out to the JST through this hole.
+# 2. Snap hooks on the rear (positive) clip pocket: the clip drops in between the cheeks, the plate shoulders push the hook lugs
+#    apart (ramped top), and the lugs then sit 0.1 mm over the plate's top edge so it cannot lift out.
+BAY_FIX_PARAMS = [
+    ('bay_wire_hole_d', '3.5 mm', 'wire hole through the front holder backing (centred on the spring pin; pin is 3.8 mm)'),
+    ('bay_wire_hole_len', '2.1 mm', 'wire hole cut length from the plate pocket front face (backing is 1.45 mm)'),
+    ('bay_hook_ov', '0.4 mm', 'rear clip snap hook overlap onto the plate shoulder'),
+    ('bay_hook_gap', '0.1 mm', 'gap between the plate top edge and the hook underside'),
+    ('bay_hook_h', '0.9 mm', 'hook height at the cheek (the ramped top leaves h - overlap at the tip)'),
+    ('bay_hook_y1', 'bay_clip_y + 0.65 mm', 'hook front end (y): covers the 0.5 mm plate sheet plus 0.15 mm'),
+]
+
+
+def add_bay_fix_params(des):
+    add_bay_params(des)
+    up = des.userParameters
+    for n, e, c in BAY_FIX_PARAMS:
+        pr = up.itemByName(n)
+        if pr is None: up.add(n, VI(e), 'mm', c)
+        else: pr.expression = e
+
+
+def build_bay_wire_hole(c, des, body):
+    add_bay_fix_params(des)
+    sk = c.sketches.add(c.xZConstructionPlane); sk.name = 'Bay wire hole'
+    cy = ev_cm(des, '-(bay_axis_z)')
+    circ = sk.sketchCurves.sketchCircles.addByCenterRadius(P3(0, cy, 0), ev_cm(des, 'bay_wire_hole_d') / 2)
+    sk.geometricConstraints.addVerticalPoints(sk.originPoint, circ.centerSketchPoint)       # centred on x = 0
+    dm = sk.sketchDimensions
+    dm.addDistanceDimension(sk.originPoint, circ.centerSketchPoint, adsk.fusion.DimensionOrientations.VerticalDimensionOrientation, P3(1.5, cy / 2, 0)).parameter.expression = '-(bay_axis_z)'
+    dm.addDiameterDimension(circ, P3(0.5, cy + 0.5, 0)).parameter.expression = 'bay_wire_hole_d'
+    ext(c, all_profiles(sk), 'bay_wire_hole_len', FE.CutFeatureOperation, 'Bay wire hole', start='bay_front_y', target=body)
+
+
+def build_bay_clip_hooks(c, des, body):
+    add_bay_fix_params(des)
+    xr = 'bay_clip_w / 2 + bay_hold_clr'
+    y0 = 'bay_clip_y - bay_hold_clr'
+    sk = _xy_rects(c, des, 'Bay clip hook posts', [('-(%s + bay_hold_w)' % xr, '-(%s)' % xr, y0, 'bay_hook_y1'),
+                                                 ('%s' % xr, '%s + bay_hold_w' % xr, y0, 'bay_hook_y1')])
+    ext(c, all_profiles(sk), 'bay_hook_gap + bay_hook_h', FE.JoinFeatureOperation, 'Bay clip hook posts', start='bay_hold_top_z', target=body)
+    zl = 'bay_hold_top_z + bay_hook_gap'; zh = '(bay_hold_top_z + bay_hook_gap + bay_hook_h)'
+    sk = c.sketches.add(c.xZConstructionPlane); sk.name = 'Bay clip hook lugs'
+    for s_ in (1, -1):
+        X = (lambda e: '(%s)' % e) if s_ > 0 else (lambda e: '-(%s)' % e)
+        poly_pts(sk, des, [(X('%s + 0.1 mm' % xr), '-(%s)' % zl), (X('%s - bay_hook_ov' % xr), '-(%s)' % zl),
+                           (X('%s - bay_hook_ov' % xr), '-(%s - bay_hook_ov)' % zh), (X('%s + 0.1 mm' % xr), '-(%s)' % zh)])
+    ext(c, all_profiles(sk), 'bay_hook_y1 - (%s)' % y0, FE.JoinFeatureOperation, 'Bay clip hook lugs', start=y0, target=body)

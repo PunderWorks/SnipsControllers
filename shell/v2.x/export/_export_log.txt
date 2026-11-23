@@ -54,3 +54,8 @@ Print files regenerated for the new/changed parts only (unchanged print STEPs we
   - Rear PCB posts (mh3, mh4) are now U shaped: a web the full post width runs into the side wall (`PCB post wall webs`, `post_web_trim` 1.1 keeps the rear-left web clear of the power button post flat).
   - Result: a collision-free path exists (enter 15 mm forward at 4-5 degrees rear-up, slide back while rising, level out, lift 0.75 mm onto the pegs), no scrapes at 0.25 mm / 1 mm / 1 degree steps.
   - Not needed after all: face-button tube relief and rear USB plate trim (the 4 degree rear-up tilt clears both).
+
+2026-11-23 (later): battery contact fixes (BottomShell standard only)
+  - Wire hole through the forward bulkhead: 3.5 mm round at x 0, z -8.4 (`bay_wire_hole_d`, `bay_wire_hole_len`), beside the trigger, for the negative spring lead.
+  - Positive (rear) contact clip snap hooks: cheek posts + ramped lugs (`bay_hook_ov` 0.4, `bay_hook_gap` 0.1, `bay_hook_h` 0.9, `bay_hook_y1`) retain the clip against the shoulders.
+  - Checked: single solid body, no new interference (existing crush ribs only), STL watertight. BottomShell_Pouch unaffected.
