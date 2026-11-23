@@ -64,3 +64,10 @@ Print files regenerated for the new/changed parts only (unchanged print STEPs we
   - Print 2 text was unreadable: Arial Bold stems about one 0.4 mm line wide, counters filled in. Now Arial Black (`POL_FONT`), marks and note 2.9 mm high (ledge 3.45 mm wide), depth unchanged at 0.6 mm.
   - Note split across the ledges: "LI-ION" on the right, "14500" on the left. Live `pol_edge` (2.4 mm) synced into the lib.
   - Checked: heightmap of both ledges shows all glyphs inside the ledge, no breakthrough; single body, STL watertight.
+
+2026-11-23 (evening): face buttons to rounded squares; bumper cap thickness folded into parameters
+  - The D flat cut the numbers and looked bad. Face button stem/cap is now a 4.3 mm rounded square (`fb_sq`, corner radius `fb_sq_r` 0.6, clearance `fb_sq_clr` 0.15 per side); the number is whole on the cap. D params (`fb_cap_d`, `fb_flat`, `fb_flat_clr`, `fb_clr`) are gone.
+  - Tube bores and roof holes are one cut of matching rounded squares ('Face button bores (through)'), replacing the D bore + round hole pair. New `_fb_rsq` helper, `build_face_bores`.
+  - Rotation limit measured with a sweep against TopShell: first contact at about 5.5 degrees (D was about 4.5; a 1 mm corner radius allowed about 9, hence 0.6).
+  - Bumper cap thickened 1 -> 2 mm (inward) as a parameter: `bm_cap_t` 2, `bm_cap_in_y` = cap face - cap thickness, `bm_travel` now derived (1.5 mm cap-to-skin gap). Replaces a loose 'Extrude4' feature.
+  - Re-exported TopShell, Bumper, FaceButton1-6. All STLs watertight.

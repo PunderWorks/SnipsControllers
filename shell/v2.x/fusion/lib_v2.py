@@ -928,10 +928,9 @@ FB_PARAMS = [
     ('mac_px', '9.1 mm', 'Macro button pitch in x'),
     ('mac_py', '7.21 mm', 'Macro button pitch in y (PCB measured 7.21)'),
     ('mac_cy1', '-7.32 mm', 'Front macro row centre y (PCB measured)'),
-    ('fb_cap_d', '5 mm', 'Face button cap / stem diameter (D stem is this circle with one flat)'),
-    ('fb_flat', '1.5 mm', 'D flat distance from the stem axis (flat toward the rear); deeper D (was 2.1) so buttons cannot rotate'),
-    ('fb_flat_clr', '0.15 mm', 'Clearance on the D flat only (tighter than fb_clr; about +-4.5 degrees of rotation)'),
-    ('fb_clr', '0.2 mm', 'Stem clearance per side in the hole / bore'),
+    ('fb_sq', '4.3 mm', 'Face button cap / stem side (rounded square; the square stops the button turning, the number stays whole)'),
+    ('fb_sq_r', '0.6 mm', 'Corner radius of the rounded square stem (a larger radius lets the button twist more)'),
+    ('fb_sq_clr', '0.15 mm', 'Clearance per side of the square stem in its bore (about +-5.5 degrees of rotation with a 0.6 mm corner radius)'),
     ('fb_flange_d', '6 mm', 'Button flange diameter'),
     ('fb_flange_t0', '1 mm', 'Original flange thickness (sets the unshortened tube bottom)'),
     ('fb_flange_t', 'fb_tube_bot - fb_free - fb_switch_top', 'Button flange thickness: grows up to fb_free below the shortened tube'),
@@ -962,17 +961,34 @@ def _fb_circle(sk, cx, cy, dia_cm):
     return c, c.centerSketchPoint
 
 
-def _fb_d(sk, des, cx, cy, dia_expr, flat_expr):
-    """D shape (circle with a flat toward -y), fully constrained except its centre."""
-    r = ev_cm(des, dia_expr) / 2; f = ev_cm(des, flat_expr); h = (r * r - f * f) ** 0.5
-    ln = sk.sketchCurves.sketchLines.addByTwoPoints(P3(cx - h, cy - f, 0), P3(cx + h, cy - f, 0))
-    arc = sk.sketchCurves.sketchArcs.addByThreePoints(ln.endSketchPoint, P3(cx, cy + r, 0), ln.startSketchPoint)
+def _fb_rsq(sk, des, cx, cy, side_expr, r_expr):
+    """Rounded square centred (cx, cy). Fully constrained except its position, which is carried by the returned centre point
+    (a sketch point held at the midpoint of a construction diagonal between two opposite corner arc centres)."""
+    h = ev_cm(des, side_expr) / 2
+    rect = sk.sketchCurves.sketchLines.addTwoPointRectangle(P3(cx - h, cy - h, 0), P3(cx + h, cy + h, 0))
+    lines = [rect.item(i) for i in range(4)]
+    def horiz(l): return abs(l.startSketchPoint.geometry.y - l.endSketchPoint.geometry.y) < 1e-9
+    hs = [l for l in lines if horiz(l)]; vs = [l for l in lines if not horiz(l)]
     gc = sk.geometricConstraints; dm = sk.sketchDimensions
-    gc.addHorizontal(ln)
-    dm.addRadialDimension(arc, P3(cx + r + 0.3, cy + r * 0.3, 0)).parameter.expression = '(%s) / 2' % dia_expr
-    dm.addDistanceDimension(arc.centerSketchPoint, ln.startSketchPoint, adsk.fusion.DimensionOrientations.VerticalDimensionOrientation,
-                            P3(cx - r - 0.5, cy - f / 2, 0)).parameter.expression = flat_expr
-    return arc, arc.centerSketchPoint
+    for l in hs: gc.addHorizontal(l)
+    for l in vs: gc.addVertical(l)
+    lft = min(vs, key=lambda l: l.startSketchPoint.geometry.x); rgt = max(vs, key=lambda l: l.startSketchPoint.geometry.x)
+    bot = min(hs, key=lambda l: l.startSketchPoint.geometry.y); top = max(hs, key=lambda l: l.startSketchPoint.geometry.y)
+    dm.addOffsetDimension(lft, rgt.startSketchPoint, P3(cx, cy + h + 0.4, 0)).parameter.expression = side_expr
+    dm.addOffsetDimension(bot, top.startSketchPoint, P3(cx - h - 0.4, cy, 0)).parameter.expression = side_expr
+    def mid(l):
+        a = l.startSketchPoint.geometry; b = l.endSketchPoint.geometry
+        return P3((a.x + b.x) / 2, (a.y + b.y) / 2, 0)
+    arcs = [sk.sketchCurves.sketchArcs.addFillet(v, mid(v), hh, mid(hh), ev_cm(des, r_expr)) for v in vs for hh in hs]
+    g = arcs[0].centerSketchPoint.geometry
+    dm.addRadialDimension(arcs[0], P3(g.x + 0.2, g.y + 0.2, 0)).parameter.expression = r_expr
+    for x in arcs[1:]:
+        gc.addEqual(arcs[0], x)
+    diag = sk.sketchCurves.sketchLines.addByTwoPoints(arcs[0].centerSketchPoint, arcs[3].centerSketchPoint)
+    diag.isConstruction = True
+    cp = sk.sketchPoints.add(P3(cx, cy, 0))
+    gc.addMidPoint(cp, diag)
+    return None, cp
 
 
 def _fb_grid(sk, des, shape_fn):
@@ -994,8 +1010,18 @@ def _fb_grid(sk, des, shape_fn):
         dm.addDistanceDimension(pts[(0, c)], pts[(1, c)], H.VerticalDimensionOrientation, P3((c - 1) * px + 1.5, cy1 - py / 2, 0)).parameter.expression = 'mac_py'
 
 
+def build_face_bores(top_comp, des):
+    """Rounded-square bores for the six buttons: one cut from just below the guide tube bottom up through the roof."""
+    add_fb_params(des)
+    body = top_comp.bRepBodies.item(0)
+    sk = top_comp.sketches.add(top_comp.xYConstructionPlane); sk.name = 'Face bores'
+    _fb_grid(sk, des, lambda cx, cy: _fb_rsq(sk, des, cx, cy, 'fb_sq + 2 * fb_sq_clr', 'fb_sq_r + fb_sq_clr'))
+    ext(top_comp, all_profiles(sk), '(top_z - roof_t + 8 mm) - (fb_tube_bot - 0.5 mm)', FE.CutFeatureOperation, 'Face button bores (through)',
+        start='fb_tube_bot - 0.5 mm', target=body)
+
+
 def build_face_guides(top_comp, des):
-    """Guide tubes (round OD), D bores below the roof, round holes through the roof and bump skin."""
+    """Guide tubes (round OD) and the rounded-square bores through them and the roof."""
     add_fb_params(des)
     body = top_comp.bRepBodies.item(0)
     sk = top_comp.sketches.add(top_comp.xYConstructionPlane); sk.name = 'Face tubes'
@@ -1004,19 +1030,11 @@ def build_face_guides(top_comp, des):
         if c.objectType.endswith('SketchCircle'):
             sk.sketchDimensions.addDiameterDimension(c, P3(c.centerSketchPoint.geometry.x + 2, c.centerSketchPoint.geometry.y + 2, 0)).parameter.expression = 'fb_tube_od'
     ext(top_comp, all_profiles(sk), 'top_z - 0.2 mm - fb_tube_bot', FE.JoinFeatureOperation, 'Face button guide tubes', start='fb_tube_bot', target=body)
-    sk = top_comp.sketches.add(top_comp.xYConstructionPlane); sk.name = 'Face bores'
-    _fb_grid(sk, des, lambda cx, cy: _fb_d(sk, des, cx, cy, 'fb_cap_d + 2 * fb_clr', 'fb_flat + fb_flat_clr'))
-    ext(top_comp, all_profiles(sk), 'top_z - roof_t - (fb_tube_bot - 0.5 mm)', FE.CutFeatureOperation, 'Face button D bores', start='fb_tube_bot - 0.5 mm', target=body)
-    sk = top_comp.sketches.add(top_comp.xYConstructionPlane); sk.name = 'Face holes'
-    _fb_grid(sk, des, lambda cx, cy: _fb_circle(sk, cx, cy, ev_cm(des, 'fb_cap_d + 2 * fb_clr')))
-    for c in sk.sketchCurves:
-        if c.objectType.endswith('SketchCircle'):
-            sk.sketchDimensions.addDiameterDimension(c, P3(c.centerSketchPoint.geometry.x + 2, c.centerSketchPoint.geometry.y + 2, 0)).parameter.expression = 'fb_cap_d + 2 * fb_clr'
-    ext(top_comp, all_profiles(sk), '8 mm', FE.CutFeatureOperation, 'Face button round holes', start='top_z - roof_t', target=body)
+    build_face_bores(top_comp, des)
 
 
 def build_face_button(root, des, row, col, label):
-    """One printed button: D stem whose end is the round cap (with the number debossed), flat flange resting on the switch."""
+    """One printed button: rounded-square stem whose end is the cap (with the number debossed), flat flange resting on the switch."""
     add_fb_params(des)
     comp = new_component(root, 'FaceButton%s' % label)
     px, py, cy1 = ev_cm(des, 'mac_px'), ev_cm(des, 'mac_py'), ev_cm(des, 'mac_cy1')
@@ -1032,7 +1050,7 @@ def build_face_button(root, des, row, col, label):
         sk.sketchDimensions.addDistanceDimension(sk.originPoint, pt, H.VerticalDimensionOrientation, P3(cx + 1.0, cy / 2, 0)).parameter.expression = yexpr
 
     sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = 'Button stem'
-    arc, pt = _fb_d(sk, des, cx, cy, 'fb_cap_d', 'fb_flat'); place(sk, pt)
+    arc, pt = _fb_rsq(sk, des, cx, cy, 'fb_sq', 'fb_sq_r'); place(sk, pt)
     f = ext(comp, main_profile(sk), 'fb_cap_top - (fb_flange_top - 0.2 mm)', FE.NewBodyFeatureOperation, 'Button stem', start='fb_flange_top - 0.2 mm')
     body = f.bodies.item(0); body.name = 'FaceButton%s' % label
     sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = 'Button flange'
@@ -1044,7 +1062,7 @@ def build_face_button(root, des, row, col, label):
     pin = comp.constructionPlanes.createInput(); pin.setByOffset(comp.xYConstructionPlane, VI('fb_cap_top'))
     pl = comp.constructionPlanes.add(pin); pl.name = 'Cap face plane'
     ts = comp.sketches.add(pl); ts.name = 'Button number'
-    r = ev_cm(des, 'fb_cap_d') / 2
+    r = ev_cm(des, 'fb_sq') / 2
     ti = ts.sketchTexts.createInput2(str(label), ev_cm(des, 'fb_text_h'))
     ti.setAsMultiLine(P3(cx - r, cy + r, 0), P3(cx + r, cy - r, 0),
                       adsk.core.HorizontalAlignments.CenterHorizontalAlignment, adsk.core.VerticalAlignments.MiddleVerticalAlignment, 0)
@@ -1234,16 +1252,16 @@ BUMP2_PARAMS = [
     ('bm_cap_h', '8 mm', 'Cap height (z)'),
     ('bm_cap_r', '2 mm', 'Cap corner radius'),
     ('bm_proud', '3.5 mm', 'Cap face stands this far proud of the front skin'),
-    ('bm_travel', '2.5 mm', 'Gap between the front skin and the cap underside = press travel'),
+    ('bm_cap_t', '2 mm', 'Cap thickness (grows inward from the cap face; was 1 mm)'),
     ('bm_cap_fillet', '0.4 mm', 'Cap face edge fillet'),
     ('bm_wall_in_y', 'y_front_out - wall', 'Front wall inner face y'),
     ('bm_wall_out_y', 'y_front_out', 'Front wall outer face y'),
     ('bm_fl_in_y', 'bm_act_y + bm_gap', 'Flange inner face y'),
     ('bm_fl_out_y', 'bm_fl_in_y + bm_fl_t', 'Flange outer face y'),
     ('bm_pk_floor_y', 'bm_fl_out_y + bm_pk_axial', 'Pocket floor y'),
-    ('bm_cap_in_y', 'bm_wall_out_y + bm_travel', 'Cap underside y'),
     ('bm_cap_out_y', 'bm_wall_out_y + bm_proud', 'Cap face y'),
-    ('bm_cap_t', 'bm_cap_out_y - bm_cap_in_y', 'Cap thickness'),
+    ('bm_cap_in_y', 'bm_cap_out_y - bm_cap_t', 'Cap underside y'),
+    ('bm_travel', 'bm_proud - bm_cap_t', 'Gap between the front skin and the cap underside (derived: cap-to-skin press travel)'),
 ]
 
 
