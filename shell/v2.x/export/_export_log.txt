@@ -43,5 +43,7 @@ Print files regenerated for the new/changed parts only (unchanged print STEPs we
   - Bumper: press travel 0.5 -> 2.5 mm; cap stands 3.5 mm proud (was 1.5). The PCB edge is the hard stop for the flange.
   - "Li-ion 14500 only" 1.8 -> 2.2 mm; engraving depth 0.5 -> 0.6 mm.
   - OLED room: PCB screw posts 1 mm shorter (`post_top_z` 10.5 -> 9.5). The overall shell height is unchanged (an earlier attempt raised `top_z` by 1 mm and was reverted).
-  - Trigger post sockets 0.5 mm deeper each side (`trig_sock_l/r`, `pt_sock_l/r`); post is 1 mm longer.
+  - Trigger post, left end: the 'Left well keyhole' cut removed the wall under the post's left end, so nothing held it in. Keyhole removed; a solid lip
+    (`trig_lip_x1` -9.65 mm, from the head-well edge, full depth up to the socket floor) now carries the post. Sockets back to -10.35 / 9.8 mm,
+    screw head wells 4.6 -> 4.4 mm (`head_well_d`). Re-exported BottomShell, BottomShell_Pouch, TriggerPost, TriggerCaps.
   - Top-shell screw holes: no blockage found in CAD (all four pilot holes, wells and bores clear).

@@ -381,7 +381,7 @@ SCREW_PARAMS = [
     ('post_r', '3.6 mm', 'Post / column radius (merges with the side walls)'),
     ('post_top_z', '9.5 mm', 'Top of the PCB posts (was 10.5; 1 mm shorter gives the OLED more room when it is tipped in)'),
     ('pilot_d', '1.7 mm', 'Self-tapping pilot hole diameter'), ('screw_clr_d', '2.4 mm', 'Screw shaft clearance bore'),
-    ('head_well_d', '4.6 mm', 'Screw head / driver well diameter'),
+    ('head_well_d', '4.4 mm', 'Screw head / driver well diameter'),
 ]
 MH = [('mh1_x', 'mh1_y'), ('mh2_x', 'mh2_y'), ('mh3_x', 'mh3_y'), ('mh4_x', 'mh4_y')]
 
@@ -1822,9 +1822,20 @@ def build_trigger_slot(c, des, body):
     circle_at(sk, des, 'mh1_x', 'mh1_y', 'head_well_d')
     circle_at(sk, des, 'mh2_x', 'mh2_y', 'head_well_d')
     ext(c, all_profiles(sk), 'bot_d + screw_head_seat_z', FE.CutFeatureOperation, 'Screw head wells (ramp)', start='-bot_d', target=body)
-    # the left screw column leaves only ~0.3 mm between the head well and the slot: open the well into the slot (keyhole)
-    sk = _xy_rects(c, des, 'Left well keyhole', [('mh1_x', 'trig_x0 - trig_clr', 'mh1_y - head_well_d / 2', 'mh1_y + head_well_d / 2')])
-    ext(c, all_profiles(sk), 'bot_d + screw_head_seat_z', FE.CutFeatureOperation, 'Left well keyhole', start='-bot_d', target=body)
+    _post_left_lip(c, des, body, 'bot_d')
+
+
+def _post_left_lip(c, des, body, depth_e):
+    """Solid lip under the left end of the trigger post: the wall between the left head well and the slot (x from the well
+    edge to trig_lip_x1, a little into the slot clearance), full depth up to the bottom of the post socket. (The former
+    'keyhole' cut removed this wall, leaving the post's left end with nothing under it.)"""
+    up = des.userParameters
+    for n, e, cm in (('trig_lip_x1', '-9.65 mm', 'left post lip: right edge (x), 0.2 mm into the slot clearance, 0.2 mm clear of the trigger'),):
+        pr = up.itemByName(n)
+        if pr is None: up.add(n, VI(e), 'mm', cm)
+        else: pr.expression = e
+    sk = _xy_rects(c, des, 'Trigger post left lip', [('mh1_x + head_well_d / 2', 'trig_lip_x1', 'mh1_y - head_well_d / 2', 'mh1_y + head_well_d / 2')])
+    ext(c, all_profiles(sk), '%s + trig_piv_z - trig_post_d / 2 - trig_sock_clr' % depth_e, FE.JoinFeatureOperation, 'Trigger post left lip', start='-' + depth_e, target=body)
 
 
 # ---------------------------------------------------------------- pivot trigger (v2) ----
@@ -1847,8 +1858,8 @@ TRIG2_PARAMS = [
     ('trig_post_d', '2.9 mm', 'pivot post diameter (D shape, as v1.1)'),
     ('trig_post_flat', '0.55 mm', 'pivot post flat depth, on the +z side'),
     ('trig_bore_clr', '0.15 mm', 'hub bore clearance per side around the post'),
-    ('trig_sock_l', '-10.85 mm', 'left post socket end (x), 1.0 mm into the left column wall (0.45 mm wall left to the screw bore)'),
-    ('trig_sock_r', '10.3 mm', 'right post socket end (x), 1.2 mm into the right column wall'),
+    ('trig_sock_l', '-10.35 mm', 'left post socket end (x), 0.5 mm into the left column wall; the post rests on the left lip (trig_lip_x1)'),
+    ('trig_sock_r', '9.8 mm', 'right post socket end (x), 0.7 mm into the right column wall'),
     ('trig_sock_clr', '0.15 mm', 'socket clearance per side around the post'),
     ('trig_post_x0', 'trig_sock_l + 0.15 mm', 'post left end'),
     ('trig_post_x1', 'trig_sock_r - 0.15 mm', 'post right end'),
@@ -2424,9 +2435,7 @@ def build_pt_slot(c, des, body):
     circle_at(sk, des, 'mh1_x', 'mh1_y', 'head_well_d')
     circle_at(sk, des, 'mh2_x', 'mh2_y', 'head_well_d')
     ext(c, all_profiles(sk), 'pouch_bot_d + screw_head_seat_z', FE.CutFeatureOperation, 'Screw head wells (ramp)', start='-pouch_bot_d', target=body)
-    # the left screw column leaves only ~0.3 mm between the head well and the slot: open the well into the slot (keyhole)
-    sk = _xy_rects(c, des, 'Left well keyhole', [('mh1_x', 'pt_x0 - pt_clr', 'mh1_y - head_well_d / 2', 'mh1_y + head_well_d / 2')])
-    ext(c, all_profiles(sk), 'pouch_bot_d + screw_head_seat_z', FE.CutFeatureOperation, 'Left well keyhole', start='-pouch_bot_d', target=body)
+    _post_left_lip(c, des, body, 'pouch_bot_d')
 
 
 # ---------------------------------------------------------------- pivot trigger (v2) ----
@@ -2450,8 +2459,8 @@ PT2_PARAMS = [
     ('pt_post_d', '2.9 mm', 'pivot post diameter (D shape, as v1.1)'),
     ('pt_post_flat', '0.55 mm', 'pivot post flat depth, on the +z side'),
     ('pt_bore_clr', '0.15 mm', 'hub bore clearance per side around the post'),
-    ('pt_sock_l', '-10.85 mm', 'left post socket end (x), 1.0 mm into the left column wall (0.45 mm wall left to the screw bore)'),
-    ('pt_sock_r', '10.3 mm', 'right post socket end (x), 1.2 mm into the right column wall'),
+    ('pt_sock_l', '-10.35 mm', 'left post socket end (x), 0.5 mm into the left column wall; the post rests on the left lip (trig_lip_x1)'),
+    ('pt_sock_r', '9.8 mm', 'right post socket end (x), 0.7 mm into the right column wall'),
     ('pt_sock_clr', '0.15 mm', 'socket clearance per side around the post'),
     ('pt_post_x0', 'pt_sock_l + 0.15 mm', 'post left end'),
     ('pt_post_x1', 'pt_sock_r - 0.15 mm', 'post right end'),
