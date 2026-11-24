@@ -85,3 +85,6 @@ Print files regenerated for the new/changed parts only (unchanged print STEPs we
   - TopShell prints top side down. The thumbstick bump is cut off at z = top_z (`Cap split`) into a new StickCap component. 0.8 mm straight collar (`bump_collar`) before the S-curve so the cut is a clean plane; the hand-made 1.5 mm bump-foot fillet is gone (it sat on the cut plane). Glue seat ring on both parts (`bump_glue_w` 3.6 x `bump_glue_h` 2, shell side), two cap pegs (`peg_d` 1.6, 120 deg apart at `peg_r` 14.2) in blind pockets (`peg_clr` 0.2 per side, 0.4 mm deeper than `peg_len`, `peg_lead` 0.3 chamfers).
   - New: StickCap STEP/STL (modelled + print orientation, dome down). TopShell print orientation is now x 180.
   - Re-exported TopShell, StickCap, BottomShell, BottomShell_Pouch (+ SnipsShell_v2.f3d). All STLs watertight.
+
+2026-11-23 (late): TriggerPost full-length print flat
+  - New `Post print flat` cut (`trig_post_side` 0.55 mm) on the rear (-y) side of the post, across the D body, round collars and neck, so it prints on one flat face with no supports and no brim. The D flat on top and the lip lock are unchanged (the lips catch the collars above the D flat plane, so that side could not be flattened). Applies to TriggerPost and TriggerPost_Pouch; print orientation is x 90. The flat only adds clearance in the sockets and bore.

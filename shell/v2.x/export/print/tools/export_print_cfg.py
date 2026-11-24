@@ -16,7 +16,7 @@ ORI = {
     'SideButtonR2': ([('y', -90)], 'flat base on the bed, D stem up'),
     'Trigger':      ([('y', -90)], 'big flat blade face on the bed, spring ear up'),
     'Trigger_Pouch': ([('y', -90)], 'big flat blade face on the bed, spring ear up'),
-    'TriggerPost':  ([], 'lying along X, round side down, flat up (the round end collar and neck rule out a flat-down D); brim recommended'),
+    'TriggerPost':  ([('x', 90)], 'lying along X on the full-length rear flat (across the collars and neck); no supports'),
 }
 for _i in range(1, 7):
     ORI['FaceButton%d' % _i] = ([], '+Z up (as modelled): flange on the bed, stem and cap up')

@@ -2187,6 +2187,16 @@ def build_post_lock_ends(c, des, p, dprofile_name=None):
     sk.sketchDimensions.addDiameterDimension(c2, P3(0.0, 0.0, 0.0)).parameter.expression = '%s_lk_neck_d' % p
     ring = profile_by_loops(sk, 2)[0]
     ext(c, ring, '%s_lk_neck_w' % p, FE.CutFeatureOperation, 'Post neck', start='%s_lk_c - %s_lk_neck_w / 2' % (p, p), target=c.bRepBodies.item(0))
+    # full-length print flat on the rear (-y) side: runs across the collars and neck so the post prints on one flat face
+    up = des.userParameters
+    if up.itemByName('trig_post_side') is None:
+        up.add('trig_post_side', VI('0.55 mm'), 'mm', 'Depth of the full-length print flat on the rear (-y) side of the post (across the collars and neck; the D flat and the lock are untouched)')
+    pin = c.constructionPlanes.createInput()
+    pin.setByOffset(c.xZConstructionPlane, VI('%s_piv_y - (%s_post_d / 2 - trig_post_side)' % (p, p)))
+    pl = c.constructionPlanes.add(pin); pl.name = 'Post print flat plane'
+    sk = c.sketches.add(pl); sk.name = 'Post print flat'
+    rect4(sk, des, '-12 mm', '12 mm', '-6 mm', '6 mm')
+    ext(c, all_profiles(sk), '%s_post_d' % p, FE.CutFeatureOperation, 'Post print flat', neg=True, target=c.bRepBodies.item(0))
 
 
 # ---------------------------------------------------------------- torsion spring mount (v2) ----

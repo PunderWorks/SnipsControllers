@@ -17,7 +17,7 @@ use slicer supports where noted. Source of truth: `../../fusion/SnipsShell_v2.f3
 | SideButtonL1/L2, R1/R2 | flat base on the bed, D stem up | none |
 | Trigger | big flat blade face on the bed, spring ear up | none expected |
 | Trigger_Pouch | big flat blade face on the bed, spring ear up | none expected. Pouch variant only (use `Trigger` with `BottomShell`) |
-| TriggerPost | lying along X, round side down, flat up (round end collar + neck, so the D flat can no longer face the bed) | none; use a brim, the round bottom has a thin first-layer contact. Assembly: put the post through the trigger hub and spring, drop trigger + post straight into the sockets with the neck between the two lips, then slide the post toward the left (-X) about 0.5 mm until it stops: the left end enters a closed pocket, the end collar goes under the lips |
+| TriggerPost | lying along X on its full-length rear flat (a second flat, `trig_post_side` 0.55 mm deep, runs across the round collars and neck; the D flat and the lock are untouched) | none |
 
 ## Variants
 Standard build: `BottomShell` + `Trigger` + `BatteryPanel` (14500 cell). Pouch build: `BottomShell_Pouch` + `Trigger_Pouch` (YDL103035
