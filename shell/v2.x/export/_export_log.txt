@@ -91,3 +91,6 @@ Print files regenerated for the new/changed parts only (unchanged print STEPs we
 
 2026-11-23 (late): removed the leftover 'Trigger post left lip' pillar
   - A 0.65 mm wide wall from the belly up to the post, left of the trigger (from the retired post-cap design), still stood in the scoop on both bottom shells and blocked the trigger's left side. Features deleted (lib `_post_left_lip` and its `trig_lip_x1` param gone); the left post pocket and socket are unchanged. Zero interference against shell, trigger and post (standard and pouch). Re-exported BottomShell and BottomShell_Pouch.
+
+2026-11-23 (night): front screw bores re-cut through the trigger ramp floor
+  - The ramp floor (added after the screw bores were cut) refilled the front two bores with a thin skin that left each hole D-shaped where it meets the head well. New 'Screw bores (ramp)' cut (screw_clr_d, same extent as 'Screw bores') after 'Screw head wells (ramp)' on BottomShell and BottomShell_Pouch; lib synced. Re-exported both.

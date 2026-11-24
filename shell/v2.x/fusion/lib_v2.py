@@ -1975,6 +1975,11 @@ def build_trigger_slot(c, des, body):
     circle_at(sk, des, 'mh1_x', 'mh1_y', 'head_well_d')
     circle_at(sk, des, 'mh2_x', 'mh2_y', 'head_well_d')
     ext(c, all_profiles(sk), 'bot_d + screw_head_seat_z', FE.CutFeatureOperation, 'Screw head wells (ramp)', start='-bot_d', target=body)
+    # the ramp floor refills the front screw bores cut earlier (a thin D-shaped skin was left in each): re-cut them
+    sk = c.sketches.add(c.xYConstructionPlane); sk.name = 'Screw bores (ramp)'
+    circle_at(sk, des, 'mh1_x', 'mh1_y', 'screw_clr_d')
+    circle_at(sk, des, 'mh2_x', 'mh2_y', 'screw_clr_d')
+    ext(c, all_profiles(sk), 'pcb_bot_z - screw_head_seat_z + 0.1 mm', FE.CutFeatureOperation, 'Screw bores (ramp)', start='screw_head_seat_z', target=body)
 
 
 # ---------------------------------------------------------------- pivot trigger (v2) ----
@@ -2607,6 +2612,11 @@ def build_pt_slot(c, des, body):
     circle_at(sk, des, 'mh1_x', 'mh1_y', 'head_well_d')
     circle_at(sk, des, 'mh2_x', 'mh2_y', 'head_well_d')
     ext(c, all_profiles(sk), 'pouch_bot_d + screw_head_seat_z', FE.CutFeatureOperation, 'Screw head wells (ramp)', start='-pouch_bot_d', target=body)
+    # the ramp floor refills the front screw bores cut earlier (a thin D-shaped skin was left in each): re-cut them
+    sk = c.sketches.add(c.xYConstructionPlane); sk.name = 'Screw bores (ramp)'
+    circle_at(sk, des, 'mh1_x', 'mh1_y', 'screw_clr_d')
+    circle_at(sk, des, 'mh2_x', 'mh2_y', 'screw_clr_d')
+    ext(c, all_profiles(sk), 'pcb_bot_z - screw_head_seat_z + 0.1 mm', FE.CutFeatureOperation, 'Screw bores (ramp)', start='screw_head_seat_z', target=body)
 
 
 # ---------------------------------------------------------------- pivot trigger (v2) ----
