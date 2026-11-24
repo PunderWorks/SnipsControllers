@@ -1975,20 +1975,6 @@ def build_trigger_slot(c, des, body):
     circle_at(sk, des, 'mh1_x', 'mh1_y', 'head_well_d')
     circle_at(sk, des, 'mh2_x', 'mh2_y', 'head_well_d')
     ext(c, all_profiles(sk), 'bot_d + screw_head_seat_z', FE.CutFeatureOperation, 'Screw head wells (ramp)', start='-bot_d', target=body)
-    _post_left_lip(c, des, body, 'bot_d')
-
-
-def _post_left_lip(c, des, body, depth_e):
-    """Solid lip under the left end of the trigger post: the wall between the left head well and the slot (x from the well
-    edge to trig_lip_x1, a little into the slot clearance), full depth up to the bottom of the post socket. (The former
-    'keyhole' cut removed this wall, leaving the post's left end with nothing under it.)"""
-    up = des.userParameters
-    for n, e, cm in (('trig_lip_x1', '-9.65 mm', 'left post lip: right edge (x), 0.2 mm into the slot clearance, 0.2 mm clear of the trigger'),):
-        pr = up.itemByName(n)
-        if pr is None: up.add(n, VI(e), 'mm', cm)
-        else: pr.expression = e
-    sk = _xy_rects(c, des, 'Trigger post left lip', [('mh1_x + head_well_d / 2', 'trig_lip_x1', 'mh1_y - head_well_d / 2', 'mh1_y + head_well_d / 2')])
-    ext(c, all_profiles(sk), '%s + trig_piv_z - trig_post_d / 2 - trig_sock_clr' % depth_e, FE.JoinFeatureOperation, 'Trigger post left lip', start='-' + depth_e, target=body)
 
 
 # ---------------------------------------------------------------- pivot trigger (v2) ----
@@ -2621,7 +2607,6 @@ def build_pt_slot(c, des, body):
     circle_at(sk, des, 'mh1_x', 'mh1_y', 'head_well_d')
     circle_at(sk, des, 'mh2_x', 'mh2_y', 'head_well_d')
     ext(c, all_profiles(sk), 'pouch_bot_d + screw_head_seat_z', FE.CutFeatureOperation, 'Screw head wells (ramp)', start='-pouch_bot_d', target=body)
-    _post_left_lip(c, des, body, 'pouch_bot_d')
 
 
 # ---------------------------------------------------------------- pivot trigger (v2) ----
