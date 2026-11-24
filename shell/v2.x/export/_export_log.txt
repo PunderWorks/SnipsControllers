@@ -33,3 +33,49 @@ Print files regenerated for the new/changed parts only (unchanged print STEPs we
 2026-11-04 (late): replaced the square front tube by the round ceiling extended to the front contact holder; battery opening and BatteryPanel lengthened (bay_pan_y1 -1.45 -> 5 mm), hook bulkhead replaced by hook pads, slots moved after the seal. Re-exported BottomShell and BatteryPanel (stl, step, print/stl, print/step) and the f3d archive.
 
 2026-11-04 (late, later): contact retention in the 14500 bay (lead-in chamfer, crush ribs, wire relief steps on the rear clip and front block pockets). Re-exported BottomShell only (stl, step, print/stl, print/step) and the f3d archive.
+
+2026-11-23: print-test-2 fixes (branch shell-print-fixes-2). Re-exported TopShell, BottomShell, BottomShell_Pouch, BatteryPanel, Bumper, PowerButton, FaceButton1-6, TriggerPost and TriggerCaps (stl, step, print/stl, print/step) and the f3d archive. Side buttons, Trigger and Trigger_Pouch unchanged.
+  - Power button: flange set back 3 mm (`pwr_set_back`) with a pusher stem to the switch, flange 5.2 x 6.4 shifted +0.2 mm in x, guide shroud shortened to the flange stop, mh3 post flattened over the stem corridor (`pwr_post_flat_y`), so the button installs past the screw post (about 1 mm to spare).
+  - Rear wall: power channel floor -48.95 -> -49.45, tube wall 1.2 -> 1.4, USB bezel 1.0 -> 1.6.
+  - Light pipe wall 0.6 -> 1.2 (solid block around the tube).
+  - Battery panel: rear lip (tongue 1.4 x 0.4 mm under the curved rear belly) so the cover cannot drop into the bay.
+  - Face buttons: D flat 2.1 -> 1.5 mm from the axis, flat clearance 0.15 (`fb_flat_clr`): about +-4.5 degrees of rotation (was +-8).
+  - Bumper: press travel 0.5 -> 2.5 mm; cap stands 3.5 mm proud (was 1.5). The PCB edge is the hard stop for the flange.
+  - "Li-ion 14500 only" 1.8 -> 2.2 mm; engraving depth 0.5 -> 0.6 mm.
+  - OLED room: PCB screw posts 1 mm shorter (`post_top_z` 10.5 -> 9.5). The overall shell height is unchanged (an earlier attempt raised `top_z` by 1 mm and was reverted).
+  - Trigger post, left end: the 'Left well keyhole' cut removed the wall under the post's left end, so nothing held it in. Keyhole removed; a solid lip
+    (`trig_lip_x1` -9.65 mm, from the head-well edge, full depth up to the socket floor) now carries the post. Sockets back to -10.35 / 9.8 mm,
+    screw head wells 4.6 -> 4.4 mm (`head_well_d`). Re-exported BottomShell, BottomShell_Pouch, TriggerPost, TriggerCaps.
+  - Top-shell screw holes: no blockage found in CAD (all four pilot holes, wells and bores clear).
+
+2026-11-23 (later): OLED install path (branch shell-print-fixes-2). Re-exported TopShell only (stl, step, print/stl, print/step) and the f3d archive.
+  - The OLED is taped to four roof pads with locating pegs and has to be slid in over the PCB posts, then lifted onto the pegs. A rigid-body path search (TemporaryBRepManager, TopShell vs OLED PCB + glass) found no path with 9.5 mm posts, 1.25 mm pegs and the light pipe exit at z 9.
+  - PCB posts 9.5 -> 8.5 mm (`post_top_z`); OLED pegs 1.25 -> 0.5 mm (`oled_peg_len`, new); light pipe exit 9 -> 7.9 mm (`pipe_end_z`).
+  - Rear PCB posts (mh3, mh4) are now U shaped: a web the full post width runs into the side wall (`PCB post wall webs`, `post_web_trim` 1.1 keeps the rear-left web clear of the power button post flat).
+  - Result: a collision-free path exists (enter 15 mm forward at 4-5 degrees rear-up, slide back while rising, level out, lift 0.75 mm onto the pegs), no scrapes at 0.25 mm / 1 mm / 1 degree steps.
+  - Not needed after all: face-button tube relief and rear USB plate trim (the 4 degree rear-up tilt clears both).
+
+2026-11-23 (later): battery contact fixes (BottomShell standard only)
+  - Wire hole through the forward bulkhead: 3.5 mm round at x 0, z -8.4 (`bay_wire_hole_d`, `bay_wire_hole_len`), beside the trigger, for the negative spring lead.
+  - Positive (rear) contact clip snap hooks: cheek posts + ramped lugs (`bay_hook_ov` 0.4, `bay_hook_gap` 0.1, `bay_hook_h` 0.9, `bay_hook_y1`) retain the clip against the shoulders.
+  - Checked: single solid body, no new interference (existing crush ribs only), STL watertight. BottomShell_Pouch unaffected.
+
+2026-11-23 (later still): battery polarity text legibility (BottomShell standard only)
+  - Print 2 text was unreadable: Arial Bold stems about one 0.4 mm line wide, counters filled in. Now Arial Black (`POL_FONT`), marks and note 2.9 mm high (ledge 3.45 mm wide), depth unchanged at 0.6 mm.
+  - Note split across the ledges: "LI-ION" on the right, "14500" on the left. Live `pol_edge` (2.4 mm) synced into the lib.
+  - Checked: heightmap of both ledges shows all glyphs inside the ledge, no breakthrough; single body, STL watertight.
+
+2026-11-23 (evening): face buttons to rounded squares; bumper cap thickness folded into parameters
+  - The D flat cut the numbers and looked bad. Face button stem/cap is now a 4.3 mm rounded square (`fb_sq`, corner radius `fb_sq_r` 0.6, clearance `fb_sq_clr` 0.15 per side); the number is whole on the cap. D params (`fb_cap_d`, `fb_flat`, `fb_flat_clr`, `fb_clr`) are gone.
+  - Tube bores and roof holes are one cut of matching rounded squares ('Face button bores (through)'), replacing the D bore + round hole pair. New `_fb_rsq` helper, `build_face_bores`.
+  - Rotation limit measured with a sweep against TopShell: first contact at about 5.5 degrees (D was about 4.5; a 1 mm corner radius allowed about 9, hence 0.6).
+  - Bumper cap thickened 1 -> 2 mm (inward) as a parameter: `bm_cap_t` 2, `bm_cap_in_y` = cap face - cap thickness, `bm_travel` now derived (1.5 mm cap-to-skin gap). Replaces a loose 'Extrude4' feature.
+  - Re-exported TopShell, Bumper, FaceButton1-6. All STLs watertight.
+
+2026-11-23 (night): trigger post retention without caps (replaces the loose TriggerCaps)
+  - TriggerCaps / TriggerCaps_Pouch components, cap params and builders are gone. The post is now held by the shells: assemble trigger + post + spring first, drop them straight into the U-slots with the post neck between two small lips, then slide the post 0.5 mm toward -X. Its left end goes into a closed pocket (`Post pocket left`), its round end collar goes under the lips (`Post lip front/rear`). Nothing flexes; only friction resists sliding back.
+  - New params per shell (`trig_lk_*` / `pt_lk_*`): slide 0.5, lip centre x 10.1, lip width 0.6, lip gap 2.3, neck d 2.0 / width 0.9, lip underside 0.93 above the pivot, lip top z 1.5. `trig_sock_r` / `pt_sock_r` 9.8 -> 11.05 so the post can be dropped 0.5 mm right of its locked position.
+  - TriggerPost: D post plus a round end piece from x 9.1 (the D flat would slip under the lips) and a neck ring cut (`build_post_lock_ends`). Print orientation changed: round side down, flat up, brim recommended (a flat-down D no longer works with the round collar).
+  - Checked with boolean sweeps (standard and pouch): zero interference dropping straight down at the nominal position and at +/-0.15 mm; zero interference sliding 0 to -0.5 mm against shell, trigger, spring coil and TopShell; lifting the locked post collides with the lips from about 0.1-0.3 mm. Known: the left pocket bottom pokes about 0.1 mm into the left screw head well roof (tiny window).
+  - BottomShell_Pouch STEP/STL were exported empty/stale before (the pouch occurrence is hidden in the model, so the export skipped it; committed 9d186c4 STEP was an empty shell). Now exported with the occurrence shown temporarily. All three STLs watertight.
+  - Re-exported BottomShell, BottomShell_Pouch, TriggerPost; TriggerCaps exports removed.

@@ -5,20 +5,17 @@ ORI = {
     'TopShell':     ([], '+Z up (as modelled): seam rim on the bed'),
     'BottomShell':  ([], '+Z up (as modelled): belly on the bed, open side up (scoop needs supports)'),
     'BatteryPanel': ([], '+Z up (as modelled): outer face on the bed'),
-    # pouch-cell variant (replaces BottomShell + BatteryPanel + Trigger; TriggerPost, TriggerCaps and the top-side parts are shared)
+    # pouch-cell variant (replaces BottomShell + BatteryPanel + Trigger; TriggerPost and the top-side parts are shared)
     'BottomShell_Pouch': ([], '+Z up (as modelled): belly on the bed, open side up (scoop needs supports)'),
     'Bumper':       ([('x', -90)], 'front face on the bed'),
-    'PowerButton':  ([('x', -90)], 'flange on the bed, stem up'),
+    'PowerButton':  ([('x', -90)], 'pusher end on the bed, stem up (flange overhangs 0.6 mm per side)'),
     'SideButtonL1': ([('y', 90)], 'flat base on the bed, D stem up'),
     'SideButtonL2': ([('y', 90)], 'flat base on the bed, D stem up'),
     'SideButtonR1': ([('y', -90)], 'flat base on the bed, D stem up'),
     'SideButtonR2': ([('y', -90)], 'flat base on the bed, D stem up'),
     'Trigger':      ([('y', -90)], 'big flat blade face on the bed, spring ear up'),
     'Trigger_Pouch': ([('y', -90)], 'big flat blade face on the bed, spring ear up'),
-    'TriggerPost':  ([('x', 180)], 'D flat on the bed, post lying along X'),
+    'TriggerPost':  ([], 'lying along X, round side down, flat up (the round end collar and neck rule out a flat-down D); brim recommended'),
 }
 for _i in range(1, 7):
     ORI['FaceButton%d' % _i] = ([], '+Z up (as modelled): flange on the bed, stem and cap up')
-# TriggerCaps holds two thin plates (left and right). Each lies flat; they are laid out side by side.
-CAPS_ROT = [('y', -90)]
-CAPS_GAP = 4.0          # mm between the two plates on the bed

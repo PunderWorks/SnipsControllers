@@ -25,7 +25,7 @@ The tools in `export/print/tools/` find their folders from their own location, s
 `SNIPS_EXPORT_DIR` / `SNIPS_PRINT_DIR` if the files live somewhere else. See `export/print/README.md`.
 
 ## v2 variants: standard (14500) and pouch cell
-v2 has two bottom shells that share everything else (TopShell, buttons, Bumper, TriggerPost, TriggerCaps, PCB).
+v2 has two bottom shells that share everything else (TopShell, buttons, Bumper, TriggerPost, PCB).
 Width and length are identical; only the height differs.
 
 | | Standard (14500 cell) | Pouch cell (YDL103035) |
