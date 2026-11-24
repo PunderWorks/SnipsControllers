@@ -2,11 +2,12 @@
 then the part is dropped onto Z=0 and centred on XY. Shared by export_print.py (STL) and step_orient.py (STEP)."""
 ORI = {
     # name: (rotations, orientation note)
-    'TopShell':     ([], '+Z up (as modelled): seam rim on the bed'),
-    'BottomShell':  ([], '+Z up (as modelled): belly on the bed, open side up (scoop needs supports)'),
+    'TopShell':     ([('x', 180)], 'top side down: the flat cut face (where the StickCap glues on) and the shell roof on the bed, seam rim up; supports only along the trigger cut-out'),
+    'StickCap':     ([('x', 180)], 'dome down (flat rim ring on the bed), cut face and the two alignment pegs up; light supports under the dome flank, brim recommended'),
+    'BottomShell':  ([], 'belly down (the edge arcs are limited to 45 deg overhang); open side up, scoop needs supports'),
     'BatteryPanel': ([], '+Z up (as modelled): outer face on the bed'),
     # pouch-cell variant (replaces BottomShell + BatteryPanel + Trigger; TriggerPost and the top-side parts are shared)
-    'BottomShell_Pouch': ([], '+Z up (as modelled): belly on the bed, open side up (scoop needs supports)'),
+    'BottomShell_Pouch': ([], 'belly down (the edge arcs are limited to 45 deg overhang); open side up, scoop needs supports'),
     'Bumper':       ([('x', -90)], 'front face on the bed'),
     'PowerButton':  ([('x', -90)], 'pusher end on the bed, stem up (flange overhangs 0.6 mm per side)'),
     'SideButtonL1': ([('y', 90)], 'flat base on the bed, D stem up'),
