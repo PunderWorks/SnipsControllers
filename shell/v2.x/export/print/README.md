@@ -6,9 +6,10 @@ use slicer supports where noted. Source of truth: `../../fusion/SnipsShell_v2.f3
 
 | Part | Orientation | Supports |
 |---|---|---|
-| TopShell | seam rim on the bed (as modelled) | slicer supports for the roof (face buttons, thumbstick bump) |
-| BottomShell | belly down, open side up (as modelled) | **yes, under the trigger scoop**: the scoop slopes 33/35/21 deg above horizontal (57/55/69 deg overhang), so supports are needed there. Add a **brim**: the bottom ~1.8 mm of the 6 mm belly fillet is steeper than 45 deg. Everything else (rib pillar, spring groove, post sockets) prints without supports |
-| BottomShell_Pouch | belly down, open side up (as modelled) | same as BottomShell: slicer supports under the trigger scoop plus a brim for the belly fillet (expected, not yet test-printed). 30.3 mm tall instead of 33.7 mm. Uses `TriggerPost`; no BatteryPanel |
+| TopShell | **top side down**: the flat roof / cap cut face on the bed, seam rim up | only along the trigger cut-out (and small internal ceilings); no supports needed for the roof, face button tubes or edge arcs. The thumbstick cap is a separate part (StickCap), so the face the cap glues to is perfectly flat |
+| StickCap | dome down (flat rim ring on the bed), cut face and the two 1.6 mm pegs up | light slicer supports under the dome flank (the S-curve is steeper than 45 deg); brim recommended (the bed contact is only the 0.8 mm rim ring). Glue to the TopShell seat ring; the pegs only fit one way (120 deg apart). Pegs 1.6 mm into 2.0 mm pockets (0.2 mm per side) with 0.3 mm lead-ins: tune `peg_clr` after a test fit |
+| BottomShell | belly down, open side up (as modelled) | **yes, under the trigger scoop** (the outer edge arcs are limited to 45 deg overhang, so no brim is needed for them): the scoop slopes 33/35/21 deg above horizontal (57/55/69 deg overhang), so supports are needed there. A brim is still good for adhesion. Everything else (rib pillar, spring groove, post sockets) prints without supports |
+| BottomShell_Pouch | belly down, open side up (as modelled) | same as BottomShell: slicer supports under the trigger scoop (expected, not yet test-printed). 30.3 mm tall instead of 33.7 mm. Uses `TriggerPost`; no BatteryPanel |
 | BatteryPanel | outer face on the bed | none (short hook tabs; add a little support if your slicer complains) |
 | Bumper | front face on the bed | none expected |
 | PowerButton | pusher end on the bed, stem up (flange overhangs 0.6 mm per side) | none |

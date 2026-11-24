@@ -140,14 +140,40 @@ def cut_tool(comp, des, target, plan_d, depth_expr, neg, start, face_z_expr, fac
     return cf
 
 
+# ------------------------------------------------- overhang-limited edge arcs (print top / belly down, no supports) ----
+EDGE_OH_PARAMS = [
+    ('edge_oh', '45 deg', 'Steepest overhang of the outer edge arc, measured from vertical: the arc turns only this far, then meets the print bed at a flat face'),
+    ('edge_ext', 'edge_r * (1 - sin(edge_oh))', 'The prism is built this much taller, filleted with edge_r, then cut flat at the old bed plane (keeps the overall height)'),
+]
+
+
+def add_edge_oh_params(des):
+    up = des.userParameters
+    for n, e, c in EDGE_OH_PARAMS:
+        pr = up.itemByName(n)
+        if pr is None: up.add(n, VI(e), 'deg' if n == 'edge_oh' else 'mm', c)
+        else: pr.expression = e
+
+
+def build_bed_cut(comp, des, body, z_expr, up, name):
+    """Flat cut that removes everything beyond z_expr (the +z side if up, else the -z side) of body: the edge arc then ends
+    in a flat face on the print bed at the overhang limit."""
+    sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = name + ' plan'
+    rect4(sk, des, '-40 mm', '40 mm', '-70 mm', '50 mm')
+    ext(comp, all_profiles(sk), 'edge_ext + 1 mm', FE.CutFeatureOperation, name, neg=not up, start=z_expr, target=body)
+
+
+
 def build_top_shell(root, des):
     """Outer prism + top edge fillet + seam lip (below seam) + seam groove + cavity."""
     comp = new_component(root, 'TopShell')
     sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = 'Plan outer'
     plan(sk, '0 mm')
-    f = ext(comp, main_profile(sk), 'top_z', FE.NewBodyFeatureOperation, 'Top outer')
+    add_edge_oh_params(des)
+    f = ext(comp, main_profile(sk), 'top_z + edge_ext', FE.NewBodyFeatureOperation, 'Top outer')
     body = f.bodies.item(0); body.name = 'TopShell'
-    fillet_face_edges(comp, planar_face_at(body, des.unitsManager.evaluateExpression('top_z', 'cm'), 1), 'edge_r', 'Top edge fillet')
+    fillet_face_edges(comp, planar_face_at(body, des.unitsManager.evaluateExpression('top_z + edge_ext', 'cm'), 1), 'edge_r', 'Top edge fillet')
+    build_bed_cut(comp, des, body, 'top_z', True, 'Top flat cut')
     sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = 'Plan seam lip ring'
     plan(sk, '0 mm'); plan(sk, 'lip_w')
     ext(comp, profile_by_loops(sk, 2)[0], 'lap_h - seam_clr', FE.JoinFeatureOperation, 'Seam lip', neg=True)
@@ -163,10 +189,12 @@ def build_bottom_shell(root, des):
     comp = new_component(root, 'BottomShell')
     sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = 'Plan outer'
     plan(sk, '0 mm')
-    f = ext(comp, main_profile(sk), 'bot_d - lap_h', FE.NewBodyFeatureOperation, 'Bottom outer', neg=True, start='-lap_h')
+    add_edge_oh_params(des)
+    f = ext(comp, main_profile(sk), 'bot_d - lap_h + edge_ext', FE.NewBodyFeatureOperation, 'Bottom outer', neg=True, start='-lap_h')
     body = f.bodies.item(0); body.name = 'BottomShell'
-    zb = -des.unitsManager.evaluateExpression('bot_d', 'cm')
+    zb = -des.unitsManager.evaluateExpression('bot_d + edge_ext', 'cm')
     fillet_face_edges(comp, planar_face_at(body, zb, -1), 'edge_r', 'Bottom edge fillet')
+    build_bed_cut(comp, des, body, '-bot_d', False, 'Belly flat cut')
     cut_tool(comp, des, body, 'wall', 'bot_d - lap_h - floor_t', True, '-lap_h', '-(bot_d - floor_t)', -1, 'edge_r - wall', 'Cavity')
     sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = 'Plan seam rib ring'
     plan(sk, 'lip_w + seam_clr'); plan(sk, 'wall')
@@ -767,6 +795,7 @@ BUMP_PARAMS = [
     ('bump_clip_r', '16.6 mm', 'Radius of the cavity-restore tool around the bump'),
     ('bump_hole_fillet', '0.6 mm', 'Fillet on the top edge of the stick opening'),
     ('bump_hollow_z', '11 mm', 'Bottom of the bump hollowing tool (inside the cavity)'),
+    ('bump_collar', '0.8 mm', 'Straight r=bump_base_r collar above top_z before the S-curve starts (clean cut plane for the removable cap)'),
 ]
 
 
@@ -815,7 +844,7 @@ def build_stick_bump_outer(top_comp, des):
     _pt_dim(sk, axl.startSketchPoint, None, 'bump_base_z')
     _pt_dim(sk, axl.endSketchPoint, None, 'bump_rim_z')
     _pt_dim(sk, top.endSketchPoint, 'bump_rim_r', None)
-    _pt_dim(sk, side.startSketchPoint, 'bump_base_r', 'top_z')
+    _pt_dim(sk, side.startSketchPoint, 'bump_base_r', 'top_z + bump_collar')
     sk.sketchDimensions.addDistanceDimension(tail.startSketchPoint, tail.endSketchPoint, adsk.fusion.DimensionOrientations.HorizontalDimensionOrientation, P3(RB + 0.25, -PAD + 0.5, 0)).parameter.expression = '0.5 mm'
     prof = main_profile(sk)
     ri = top_comp.features.revolveFeatures.createInput(prof, axis, FE.JoinFeatureOperation)
@@ -921,6 +950,96 @@ def build_stick_bump_hollow(comp, des):
     fi.addConstantRadiusEdgeSet(edges, VI('bump_hole_fillet'), True)
     ff = comp.features.filletFeatures.add(fi); ff.name = 'Stick opening fillet'
     return sk, oc
+
+
+# ------------------------------------------------------------------ removable thumbstick cap
+# The bump above top_z is cut off as its own part (StickCap) so the top shell prints top-side down on a perfectly flat face.
+# A glue seat ring (bump_glue_w wide) is added inside the skirt on both sides of the cut, and two round pegs on the cap's cut face
+# (120 deg apart, so it only fits one way) go into blind pockets in the shell ring. Pockets are peg_d + 2*peg_clr with a 45 deg
+# lead-in (peg_lead); the peg tip is chamfered too. Pockets are 0.4 mm deeper than the pegs, which leaves a glue reservoir.
+CAP_PARAMS = [
+    ('bump_glue_w', '3.6 mm', 'mm', 'Width of the glue seat ring inside the bump skirt (cap/shell mating face)'),
+    ('bump_glue_h', '2 mm', 'mm', 'Depth of the shell-side glue seat ring below top_z'),
+    ('peg_d', '1.6 mm', 'mm', 'Cap alignment peg diameter (nominal, as printed)'),
+    ('peg_clr', '0.2 mm', 'mm', 'Radial clearance of the peg in its pocket (FDM tolerance)'),
+    ('peg_len', '1 mm', 'mm', 'Cap peg length below the cut plane'),
+    ('peg_lead', '0.3 mm', 'mm', '45 deg lead-in chamfer on the pocket mouth and peg tip'),
+    ('peg_r', 'bump_base_r - bump_glue_w / 2', 'mm', 'Pitch radius of the cap alignment pegs about the stick axis'),
+    ('peg_a1', '75 deg', 'deg', 'Peg 1 angle about the stick axis (from +x). Keep both in 0..270 so the x/y dims keep their side'),
+    ('peg_a2', '195 deg', 'deg', 'Peg 2 angle about the stick axis; 120 deg from peg 1 so the cap fits one way only'),
+]
+
+
+def _peg_sketch(comp, des, name, dia_expr):
+    H = adsk.fusion.DimensionOrientations
+    sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = name
+    rr, cy = ev_cm(des, 'peg_r'), ev_cm(des, 'stick_y')
+    for k, a in enumerate(('peg_a1', 'peg_a2')):
+        ang = des.userParameters.itemByName(a).value
+        cx, cyy = rr * math.cos(ang), cy + rr * math.sin(ang)
+        c = sk.sketchCurves.sketchCircles.addByCenterRadius(P3(cx, cyy, 0), ev_cm(des, dia_expr) / 2)
+        sk.sketchDimensions.addDistanceDimension(sk.originPoint, c.centerSketchPoint, H.HorizontalDimensionOrientation, P3(cx / 2, -0.6 - 0.3 * k, 0)).parameter.expression = 'peg_r * abs(cos(%s))' % a
+        sk.sketchDimensions.addDistanceDimension(sk.originPoint, c.centerSketchPoint, H.VerticalDimensionOrientation, P3(cx + 0.8 + 0.3 * k, cyy / 2, 0)).parameter.expression = 'stick_y + peg_r * sin(%s)' % a
+        sk.sketchDimensions.addDiameterDimension(c, P3(cx + 1.2, cyy + 1.2, 0)).parameter.expression = dia_expr
+    return sk
+
+
+def _circ_edges(body, z_mm, r_mm):
+    return [e for e in body.edges if e.geometry.objectType == 'adsk::core::Circle3D'
+            and abs(e.geometry.center.z * 10 - z_mm) < 0.01 and abs(e.geometry.radius * 10 - r_mm) < 0.01]
+
+
+def build_stick_cap(root, des, top_comp):
+    """Run after build_stick_bump_hollow, before the face-button features (which must see the split shell). Returns the StickCap component."""
+    up = des.userParameters
+    for n, e, u, c in CAP_PARAMS:
+        if up.itemByName(n) is None:
+            up.add(n, VI(e), u, c)
+    body = top_comp.bRepBodies.item(0)
+    # glue seat: annulus (bump_base_r - bump_glue_w .. bump_base_r) from top_z - bump_glue_h up, clipped to the bump envelope
+    sk = top_comp.sketches.add(top_comp.xYConstructionPlane); sk.name = 'Glue seat plan'
+    c1 = circle_on_stick(sk, des, '2 * bump_base_r')
+    c2 = sk.sketchCurves.sketchCircles.addByCenterRadius(P3(0, ev_cm(des, 'stick_y'), 0), ev_cm(des, 'bump_base_r - bump_glue_w'))
+    sk.geometricConstraints.addConcentric(c1, c2)
+    sk.sketchDimensions.addDiameterDimension(c2, P3(-3, 3, 0)).parameter.expression = '2 * (bump_base_r - bump_glue_w)'
+    ring = [p for p in sk.profiles if len(p.profileLoops) == 2][0]
+    f = ext(top_comp, ring, 'bump_glue_h + 3 mm', FE.NewBodyFeatureOperation, 'Glue seat tool', start='top_z - bump_glue_h')
+    tool = f.bodies.item(0); tool.name = 'Glue seat tool'
+    psk = [s_ for s_ in top_comp.sketches if s_.name == 'Stick bump profile'][0]
+    axis = [x for x in top_comp.features.revolveFeatures if x.name == 'Stick bump'][0].axis
+    ri = top_comp.features.revolveFeatures.createInput(main_profile(psk), axis, FE.NewBodyFeatureOperation)
+    ri.setAngleExtent(False, VI('360 deg'))
+    rf = top_comp.features.revolveFeatures.add(ri); rf.name = 'Bump envelope'
+    env = rf.bodies.item(0); env.name = 'Bump envelope'
+    for tgt, tl_, op, nm in ((tool, env, FE.IntersectFeatureOperation, 'Glue seat clip'), (body, tool, FE.JoinFeatureOperation, 'Glue seat')):
+        col = adsk.core.ObjectCollection.create(); col.add(tl_)
+        ci = top_comp.features.combineFeatures.createInput(tgt, col)
+        ci.operation = op; ci.isKeepToolBodies = False
+        top_comp.features.combineFeatures.add(ci).name = nm
+    # split at top_z; the part above is the cap
+    pin = top_comp.constructionPlanes.createInput(); pin.setByOffset(top_comp.xYConstructionPlane, VI('top_z'))
+    pl = top_comp.constructionPlanes.add(pin); pl.name = 'Cap cut plane'
+    si = top_comp.features.splitBodyFeatures.createInput(body, pl, True)
+    top_comp.features.splitBodyFeatures.add(si).name = 'Cap split'
+    capb = [b for b in top_comp.bRepBodies if b.boundingBox.minPoint.z * 10 > ev_cm(des, 'top_z') * 10 - 0.2][0]
+    shell = [b for b in top_comp.bRepBodies if b is not capb][0]
+    capb.name = 'StickCap'; shell.name = 'TopShell'
+    occ = root.occurrences.addNewComponent(adsk.core.Matrix3D.create()); occ.component.name = 'StickCap'
+    capb.moveToComponent(occ)
+    cc = occ.component
+    # pegs on the cap, pockets in the shell
+    sk1 = _peg_sketch(cc, des, 'Cap pegs plan', 'peg_d')
+    ext(cc, all_profiles(sk1), 'peg_len', FE.JoinFeatureOperation, 'Cap pegs', neg=True, start='top_z', target=cc.bRepBodies.item(0))
+    sk2 = _peg_sketch(top_comp, des, 'Peg pockets plan', 'peg_d + 2 * peg_clr')
+    ext(top_comp, all_profiles(sk2), 'peg_len + 0.4 mm', FE.CutFeatureOperation, 'Peg pockets', neg=True, start='top_z', target=top_comp.bRepBodies.item(0))
+    tz, pd, cl, pg = [up.itemByName(n).value * 10 for n in ('top_z', 'peg_d', 'peg_clr', 'peg_len')]
+    for comp, z, r, nm in ((top_comp, tz, pd / 2 + cl, 'Peg pocket lead-in'), (cc, tz - pg, pd / 2, 'Peg tip chamfer')):
+        col = adsk.core.ObjectCollection.create()
+        for e in _circ_edges(comp.bRepBodies.item(0), z, r): col.add(e)
+        ci = comp.features.chamferFeatures.createInput2()
+        ci.chamferEdgeSets.addEqualDistanceChamferEdgeSet(col, VI('peg_lead'), False)
+        comp.features.chamferFeatures.add(ci).name = nm
+    return cc
 
 
 # ------------------------------------------------------------------ face (macro) buttons
@@ -2160,10 +2279,11 @@ def build_ramp_trim(comp, body):
     FEo = adsk.fusion.FeatureOperations
     sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = 'Plan outer envelope'
     plan(sk, '0 mm')
-    f = ext(comp, main_profile(sk), 'bot_d - lap_h', FEo.NewBodyFeatureOperation, 'Outer envelope', neg=True, start='-lap_h')
+    f = ext(comp, main_profile(sk), 'bot_d - lap_h + edge_ext', FEo.NewBodyFeatureOperation, 'Outer envelope', neg=True, start='-lap_h')
     env = f.bodies.item(0); env.name = 'Outer envelope'
-    zb = -des.unitsManager.evaluateExpression('bot_d', 'cm')
+    zb = -des.unitsManager.evaluateExpression('bot_d + edge_ext', 'cm')
     fillet_face_edges(comp, planar_face_at(env, zb, -1), 'edge_r', 'Outer envelope fillet')
+    build_bed_cut(comp, des, env, '-bot_d', False, 'Envelope flat cut')
     sk2 = comp.sketches.add(comp.xYConstructionPlane); sk2.name = 'Plan trim box'
     plan(sk2, '-2 mm')
     f2 = ext(comp, main_profile(sk2), 'edge_r + 2 mm', FEo.NewBodyFeatureOperation, 'Trim box', neg=True, start='-(bot_d - edge_r)')
@@ -2190,16 +2310,14 @@ def build_trigger_rim_fillets(comp, des):
     def bb(e):
         b = e.boundingBox
         return [v * 10 for v in (b.minPoint.x, b.maxPoint.x, b.minPoint.y, b.maxPoint.y, b.minPoint.z, b.maxPoint.z)]
+    # seed: the rear scoop line on the (flat-cut) belly bed plane; the rest of the rim follows by tangent chain
     big = adsk.core.ObjectCollection.create()
     for e in body.edges:
         x0, x1, y0, y1, z0, z1 = bb(e)
-        st = sorted(f.geometry.surfaceType for f in e.faces)
-        if 7 in st and y0 >= ymin - 0.05 and y1 <= 27.25 and z1 < -11.4 + 5.0 and e.length * 10 > 3 and st != [7, 7] and (
-                (st == [0, 7] and abs(y0 - ymin) < 0.05 and abs(y1 - ymin) < 0.05) or st == [1, 7] and y1 < 27.25 or
-                (st == [0, 7] and abs(abs(x0) - 17.5) < 0.05 and abs(x1 - x0) < 0.05)):
+        if e.geometry.objectType.endswith('Line3D') and abs(y0 - ymin) < 0.05 and abs(y1 - ymin) < 0.05 and abs(z0 + ev('bot_d')) < 0.02 and abs(z1 + ev('bot_d')) < 0.02:
             big.add(e)
     fi = comp.features.filletFeatures.createInput()
-    fi.addConstantRadiusEdgeSet(big, adsk.core.ValueInput.createByString('trig_rim_r'), False)
+    fi.addConstantRadiusEdgeSet(big, adsk.core.ValueInput.createByString('trig_rim_r'), True)
     f1 = comp.features.filletFeatures.add(fi); f1.name = 'Trigger rim fillet (roll-over)'
     body = comp.bRepBodies.item(0)
     lip = adsk.core.ObjectCollection.create()
@@ -2211,8 +2329,7 @@ def build_trigger_rim_fillets(comp, des):
     fi.addConstantRadiusEdgeSet(lip, adsk.core.ValueInput.createByString('trig_lip_r'), True)
     f2 = comp.features.filletFeatures.add(fi); f2.name = 'Trigger front lip fillet'
     return f1, f2
-# NOTE: the rim-edge selection above is a best-effort reconstruction of what was applied interactively
-# (edges: rear lip y=trig_sc_y0, belly-corner arcs, side-wall rims x=+-17.5 up to y 27.2); verify on a rebuild.
+# The rim is seeded from the rear scoop line (on the flat-cut belly plane) and follows the tangent chain round the scoop.
 
 
 # ------------------------------------------------- slot widening, rib pillar, post caps (2026-11-03) ----
@@ -2319,10 +2436,12 @@ def build_pouch_shell(root, des):
     comp = new_component(root, 'BottomShell_Pouch')
     sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = 'Plan outer'
     plan(sk, '0 mm')
-    f = ext(comp, main_profile(sk), d + ' - lap_h', FE.NewBodyFeatureOperation, 'Bottom outer', neg=True, start='-lap_h')
+    add_edge_oh_params(des)
+    f = ext(comp, main_profile(sk), d + ' - lap_h + edge_ext', FE.NewBodyFeatureOperation, 'Bottom outer', neg=True, start='-lap_h')
     body = f.bodies.item(0); body.name = 'BottomShell_Pouch'
-    zb = -des.unitsManager.evaluateExpression(d, 'cm')
+    zb = -des.unitsManager.evaluateExpression(d + ' + edge_ext', 'cm')
     fillet_face_edges(comp, planar_face_at(body, zb, -1), 'edge_r', 'Bottom edge fillet')
+    build_bed_cut(comp, des, body, '-' + d, False, 'Belly flat cut')
     cut_tool(comp, des, body, 'wall', d + ' - lap_h - floor_t', True, '-lap_h', '-(%s - floor_t)' % d, -1, 'pouch_cav_r', 'Cavity')
     sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = 'Plan seam rib ring'
     plan(sk, 'lip_w + seam_clr'); plan(sk, 'wall')
@@ -2732,10 +2851,11 @@ def build_pt_ramp_trim(comp, body):
     FEo = adsk.fusion.FeatureOperations
     sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = 'Plan outer envelope'
     plan(sk, '0 mm')
-    f = ext(comp, main_profile(sk), 'pouch_bot_d - lap_h', FEo.NewBodyFeatureOperation, 'Outer envelope', neg=True, start='-lap_h')
+    f = ext(comp, main_profile(sk), 'pouch_bot_d - lap_h + edge_ext', FEo.NewBodyFeatureOperation, 'Outer envelope', neg=True, start='-lap_h')
     env = f.bodies.item(0); env.name = 'Outer envelope'
-    zb = -des.unitsManager.evaluateExpression('pouch_bot_d', 'cm')
+    zb = -des.unitsManager.evaluateExpression('pouch_bot_d + edge_ext', 'cm')
     fillet_face_edges(comp, planar_face_at(env, zb, -1), 'edge_r', 'Outer envelope fillet')
+    build_bed_cut(comp, des, env, '-pouch_bot_d', False, 'Envelope flat cut')
     sk2 = comp.sketches.add(comp.xYConstructionPlane); sk2.name = 'Plan trim box'
     plan(sk2, '-2 mm')
     f2 = ext(comp, main_profile(sk2), 'edge_r + 2 mm', FEo.NewBodyFeatureOperation, 'Trim box', neg=True, start='-(pouch_bot_d - edge_r)')
@@ -2762,16 +2882,14 @@ def build_pt_rim_fillets(comp, des):
     def bb(e):
         b = e.boundingBox
         return [v * 10 for v in (b.minPoint.x, b.maxPoint.x, b.minPoint.y, b.maxPoint.y, b.minPoint.z, b.maxPoint.z)]
+    # seed: the rear scoop line on the (flat-cut) belly bed plane; the rest of the rim follows by tangent chain
     big = adsk.core.ObjectCollection.create()
     for e in body.edges:
         x0, x1, y0, y1, z0, z1 = bb(e)
-        st = sorted(f.geometry.surfaceType for f in e.faces)
-        if 7 in st and y0 >= ymin - 0.05 and y1 <= 27.25 and z1 < -5.0 and e.length * 10 > 3 and st != [7, 7] and (
-                (st == [0, 7] and abs(y0 - ymin) < 0.05 and abs(y1 - ymin) < 0.05) or st == [1, 7] and y1 < 27.25 or
-                (st == [0, 7] and abs(abs(x0) - 17.5) < 0.05 and abs(x1 - x0) < 0.05)):
+        if e.geometry.objectType.endswith('Line3D') and abs(y0 - ymin) < 0.05 and abs(y1 - ymin) < 0.05 and abs(z0 + ev('pouch_bot_d')) < 0.02 and abs(z1 + ev('pouch_bot_d')) < 0.02:
             big.add(e)
     fi = comp.features.filletFeatures.createInput()
-    fi.addConstantRadiusEdgeSet(big, adsk.core.ValueInput.createByString('pt_rim_r'), False)
+    fi.addConstantRadiusEdgeSet(big, adsk.core.ValueInput.createByString('pt_rim_r'), True)
     f1 = comp.features.filletFeatures.add(fi); f1.name = 'Trigger rim fillet (roll-over)'
     body = comp.bRepBodies.item(0)
     lip = adsk.core.ObjectCollection.create()
@@ -2783,8 +2901,7 @@ def build_pt_rim_fillets(comp, des):
     fi.addConstantRadiusEdgeSet(lip, adsk.core.ValueInput.createByString('pt_lip_r'), True)
     f2 = comp.features.filletFeatures.add(fi); f2.name = 'Trigger front lip fillet'
     return f1, f2
-# NOTE: the rim-edge selection above is a best-effort reconstruction of what was applied interactively
-# (edges: rear lip y=pt_sc_y0, belly-corner arcs, side-wall rims x=+-17.5 up to y 27.2); verify on a rebuild.
+# The rim is seeded from the rear scoop line (on the flat-cut belly plane) and follows the tangent chain round the scoop.
 
 
 # ------------------------------------------------- slot widening, rib pillar, post caps (2026-11-03) ----
@@ -2851,6 +2968,23 @@ def build_pt_rib_pillar(c, des, body):
     poly_pts(sk, des, [('-(pt_rib_z0 - 0.2 mm)', 'pt_rib_y0'), ('-(pt_rib_z0 - 0.2 mm)', 'pt_pil_y1'),
                        ('-(pt_pil_zb1)', 'pt_pil_y1'), ('-(pt_pil_zb0)', 'pt_rib_y0')])
     ext(c, all_profiles(sk), 'pt_pil_x1 - pt_pil_x0', FE.JoinFeatureOperation, 'Rib pillar', start='pt_pil_x0', target=body)
+
+
+def build_front_rounding(comp, des):
+    """trig_front_r (1.5 mm) round on the outer front lower edge of the standard scoop (flat front edge, tangent chain), after the lip fillet."""
+    up = des.userParameters
+    if not up.itemByName('trig_front_r'):
+        up.add('trig_front_r', adsk.core.ValueInput.createByString('1.5 mm'), 'mm', 'Trigger scoop front rounding fillet (on top of trig_lip_r)')
+    ev = lambda e: des.unitsManager.evaluateExpression(e, 'mm') * 10
+    z3, y3 = ev('trig_sc_z3'), ev('trig_sc_y3'); es = adsk.core.ObjectCollection.create()
+    for e in comp.bRepBodies.item(0).edges:
+        b = e.boundingBox; st = sorted(g.geometry.surfaceType for g in e.faces)
+        if e.geometry.objectType.endswith('Line3D') and st == [0, 0] and abs(b.minPoint.z * 10 - z3) < 0.02 and abs(b.maxPoint.z * 10 - z3) < 0.02 and b.minPoint.y * 10 > y3 - 0.05:
+            es.add(e)
+    fi = comp.features.filletFeatures.createInput()
+    fi.addConstantRadiusEdgeSet(es, adsk.core.ValueInput.createByString('trig_front_r'), True)
+    f = comp.features.filletFeatures.add(fi); f.name = 'Trigger front rounding fillet'
+    return f
 
 
 def build_pt_front_rounding(comp, des):
