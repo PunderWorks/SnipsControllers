@@ -1515,7 +1515,9 @@ BAY_PARAMS = [
     ('bay_hold_clr', '0.1 mm', 'contact holder clearance'),
     ('bay_hold_w', '1.2 mm', 'contact holder cheek thickness'),
     ('bay_hold_top_z', '-1.5 mm', 'contact holder top'),
-    ('bay_clip_w', '11.2 mm', 'rear clip width'),
+    ('bay_clip_w', '11.25 mm', 'rear contact plate width'),
+    ('bay_clip_h', '12 mm', 'rear contact plate height (not counting the 3 x 6.5 mm tab on top)'),
+    ('bay_clip_floor_z', 'bay_axis_z - bay_clip_h / 2 - bay_hold_clr', 'rear contact slot floor: plate centred on the cell axis, 0.1 mm under it'),
     ('bay_blk_w', '10.8 mm', 'front block plate width'),
     ('bay_pan_w', '21.6 mm', 'panel width'),
     ('bay_pan_clr', '0.15 mm', 'panel to shell gap'),
@@ -1647,6 +1649,18 @@ def build_bay_shell(bot_comp, des, body):
     sk = _xy_rects(c, des, 'Bay thumb pocket', [
         ('-(bay_thumb_hw)', 'bay_thumb_hw', 'bay_pan_y0 - bay_pan_clr - bay_thumb_len', 'bay_pan_y0 - bay_pan_clr')])
     ext(c, main_profile(sk), '0.6 mm', FE.CutFeatureOperation, 'Bay thumb pocket', start='-bot_d', target=body)
+
+
+def build_bay_rear_slot(c, des, body):
+    """Square off the rear inner corner (the 4 mm roll into the floor) into a contact slot: flat floor at bay_clip_floor_z (the belly
+    skin stays closed), back wall on the rear inner wall plane, sides = the rear cheeks, open to the top and toward the cell. Built
+    before the retention ribs so they run the full height of the slot. Cut to the cheek top so no tangent sliver is left at the curve."""
+    add_bay_params(des)
+    hx = 'bay_clip_w / 2 + bay_hold_clr'
+    sk = _xy_rects(c, des, 'Bay rear contact slot', [
+        ('-(%s)' % hx, '%s' % hx, 'bay_clip_y - bay_hold_clr', 'bay_clip_y + bay_clip_t + 0.2 mm')])
+    ext(c, main_profile(sk), 'bay_hold_top_z - bay_clip_floor_z', FE.CutFeatureOperation, 'Bay rear contact slot',
+        start='bay_clip_floor_z', target=body)
 
 
 def build_bay_hook_slots(c, des, body):

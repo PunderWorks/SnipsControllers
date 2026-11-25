@@ -128,3 +128,9 @@ Print files regenerated for the new/changed parts only (unchanged print STEPs we
   - Trigger and Trigger_Pouch D bores re-cut with the flat on the rear (-y) side (0.15 mm clearance as before), so the post still keys to the trigger. TriggerPost and TriggerPost_Pouch rebuilt (identical).
   - Checks (post vs BottomShell): free from 0 to -0.65 mm slide and at +0.15 mm; drop path from above clear; lifting the locked post (-0.5 mm) collides with the lips from 0.3 mm, as before.
   - Removed an orphaned 'Post neck' ring-cut feature in the BottomShell timeline (its sketch belonged to the old post); it had also been grooving the BottomShell lips (about 2.3 mm3), which is no longer needed. Exports: TriggerPost, Trigger, Trigger_Pouch, BottomShell (all watertight).
+
+2026-11-24 (night): rear contact slot (BottomShell); the old rear-clip cut is now permanent
+  - Jess cut away the rear contact clip block by hand (Extrude100, an un-named cut): that clip was the wrong retention idea. Its model state was never in the lib, so nothing to remove there; the rebuilt BottomShell has no such block.
+  - New `build_bay_rear_slot` ('Bay rear contact slot'): squares off the 4 mm roll-over at the rear inner corner into a slot for the positive contact: flat floor at `bay_clip_floor_z` (-14.5 mm), back wall on the rear inner wall plane, sides = the rear cheeks, open to the top (the contact slides in from above) and to the cell. The belly skin under it stays closed (1.4 mm). Inserted before the retention ribs so they run the full slot height.
+  - Contact size: `bay_clip_w` 11.25 mm (was 11.2), new `bay_clip_h` 12 mm and `bay_clip_floor_z` (plate centred on the cell axis, 0.1 mm clearance under it). Tab on top (3 x 6.5 mm) is not modelled.
+  - Timeline healthy. BottomShell exported (STEP, STL, f3d, print), watertight. BottomShell_Pouch untouched. Side rails still to come.
