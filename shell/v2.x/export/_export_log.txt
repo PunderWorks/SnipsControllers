@@ -103,3 +103,6 @@ Print files regenerated for the new/changed parts only (unchanged print STEPs we
   - BatteryPanel: 'Panel rear lip' removed; new 'Panel rear tab' sits in the existing thumb pocket (`bay_thumb_hw`/`bay_thumb_len`, `bay_tab_clr` 0.2), now 1.4 mm thick (`bay_tab_t`, ~0.25 mm under the pocket floor) and buried 2 mm into the panel. Panel vs BottomShell: zero interference.
   - BottomShell: 'Bay clip hook posts' and 'Bay clip hook lugs' (positive contact overhang) removed; `build_bay_clip_hooks` deleted from the lib.
   - Re-exported TopShell, StickCap, BottomShell, BatteryPanel, Bumper (+ SnipsShell_v2.f3d). All STLs watertight. Unrelated print files restored after step_orient.
+
+2026-11-24 (evening): power button guide tube fin
+  - The 7.2 mm guide tube behind the power button started 0.3 mm in front of `pwr_floor_y`, and at the rear-left corner the outer wall curves away (`r_rear_out`), so the tube's outer corner poked through the skin as a small fin (x -15.6 to -14.62, z 1.95 to 9.15). New 'Power tube trim' cut (`build_power_tube_trim`) removes everything outside the corner arc there. TopShell re-exported, watertight.

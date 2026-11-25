@@ -663,6 +663,25 @@ def build_power_guide(top_comp, des):
     zrect(sk, des, 'pwr_x', 'pwr_z', 'pwr_chan_w', 'pwr_chan_h')
     ext(top_comp, main_profile(sk), 'pwr_floor_y - (y_rear_out - 1 mm)', FE.CutFeatureOperation, 'Power channel',
         start='y_rear_out - 1 mm', target=body)
+    build_power_tube_trim(top_comp, des)
+
+
+def build_power_tube_trim(top_comp, des):
+    """The guide tube (7.2 mm wide) starts 0.3 mm in front of pwr_floor_y; at the rear-left corner the outer wall curves away (r_rear_out),
+    so the tube's outer corner poked out through the skin as a small fin. Cut away everything outside the corner arc in that region."""
+    add_pwr_params(des)
+    H = adsk.fusion.DimensionOrientations
+    body = top_comp.bRepBodies.item(0)
+    sk = top_comp.sketches.add(top_comp.xYConstructionPlane); sk.name = 'Power tube trim'
+    rect4(sk, des, 'pwr_x - 3.9 mm', 'pwr_x - 2.3 mm', 'y_rear_out + 0.65 mm', 'y_rear_out + 2.35 mm')
+    cx, cy = -ev_cm(des, 'shell_w / 2 - r_rear_out'), ev_cm(des, 'y_rear_out + r_rear_out')
+    c = sk.sketchCurves.sketchCircles.addByCenterRadius(P3(cx, cy, 0), ev_cm(des, 'r_rear_out'))
+    sk.sketchDimensions.addDistanceDimension(sk.originPoint, c.centerSketchPoint, H.HorizontalDimensionOrientation, P3(cx / 2, 0.5, 0)).parameter.expression = 'shell_w / 2 - r_rear_out'
+    sk.sketchDimensions.addDistanceDimension(sk.originPoint, c.centerSketchPoint, H.VerticalDimensionOrientation, P3(0.5, cy / 2, 0)).parameter.expression = '-(y_rear_out + r_rear_out)'
+    sk.sketchDimensions.addDiameterDimension(c, P3(cx - 2, cy - 2, 0)).parameter.expression = '2 * r_rear_out'
+    R = ev_cm(des, 'r_rear_out')
+    outside = [pr for pr in sk.profiles if math.hypot(pr.areaProperties().centroid.x - cx, pr.areaProperties().centroid.y - cy) > R]
+    ext(top_comp, outside[0], '10 mm', FE.CutFeatureOperation, 'Power tube trim', start='pwr_z - 5 mm', target=body)
 
 
 def build_power_post_relief(top_comp, des):
