@@ -246,16 +246,19 @@ def circle_at(sk, des, cx, cy, dia):
 
 
 OLED_PARAMS = [
-    ('oled_hole_d', '2 mm', 'OLED mounting hole diameter (drawing: R1.00)'),
-    ('oled_hole_inset', '2 mm', 'OLED mounting hole centre inset from each PCB edge'),
+    ('oled_hole_d', '2.8 mm', 'OLED mounting hole diameter (measured on the purchased module)'),
+    ('oled_hole_dx', '21 mm', 'OLED mounting holes, centre to centre in x (measured)'),
+    ('oled_hole_dy', '23 mm', 'OLED mounting holes, centre to centre in y (measured)'),
+    ('oled_hole_inset_x', '(oled_pcb_w - oled_hole_dx) / 2', 'OLED mounting hole centre inset from the PCB side edges'),
+    ('oled_hole_inset', '(oled_pcb_l - oled_hole_dy) / 2', 'OLED mounting hole centre inset from the PCB top/bottom edges'),
     ('oled_notch_w', '14 mm', 'OLED PCB bottom-edge notch width (ESTIMATED from drawing)'),
     ('oled_notch_d', '2 mm', 'OLED PCB bottom-edge notch depth (ESTIMATED from drawing)'),
-    ('oled_panel_w', '26.7 mm', 'OLED panel (glass) width'),
-    ('oled_panel_h', '19.26 mm', 'OLED panel (glass) height'),
-    ('oled_panel_top', '4.27 mm', 'OLED panel top edge, below PCB top edge'),
+    ('oled_panel_w', '24.85 mm', 'OLED panel (glass) width (same as the PCB)'),
+    ('oled_panel_h', '16.6 mm', 'OLED panel (glass) height (measured)'),
+    ('oled_panel_top', '5.4 mm', 'OLED panel top edge, below PCB top edge (measured, about)'),
     ('oled_va_w', '23.744 mm', 'OLED visible area width'),
     ('oled_va_h', '12.864 mm', 'OLED visible area height'),
-    ('oled_va_top', '5.37 mm', 'OLED visible area top, below PCB top edge'),
+    ('oled_va_top', '5.5 mm', 'OLED visible area top, below PCB top edge (0.1 mm inside the glass edge)'),
     ('oled_aa_w', '21.744 mm', 'OLED active area width'),
     ('oled_aa_h', '10.864 mm', 'OLED active area height'),
     ('oled_aa_top', '6.37 mm', 'OLED active area top, below PCB top edge'),
@@ -265,7 +268,7 @@ OLED_PARAMS = [
 
 
 def build_oled_ref(root, des):
-    """Reference model of the purchased 27.5 x 27.8 mm 0.96in I2C OLED, flat, header edge toward the front."""
+    """Reference model of the purchased 24.85 x 27 mm 0.96in I2C OLED, flat, header edge toward the front."""
     up = des.userParameters
     for n, e, c in OLED_PARAMS:
         if up.itemByName(n) is None:
@@ -286,7 +289,7 @@ def build_oled_ref(root, des):
         return sk.sketchCurves.sketchCircles.addByCenterRadius(P3(ev_cm(des, x), ev_cm(des, y), 0), ev_cm(des, d) / 2)
     def dist(p1, p2, orient, expr, tp):
         dm.addDistanceDimension(p1, p2, orient, tp).parameter.expression = expr
-    xi = 'oled_pcb_w / 2 - oled_hole_inset'
+    xi = 'oled_hole_dx / 2'
     c1 = circle_at(sk, des, xi, 'oled_front_y - oled_hole_inset', 'oled_hole_d')
     c2 = circ(xi, 'oled_front_y - oled_pcb_l + oled_hole_inset', 'oled_hole_d')
     gc.addVerticalPoints(c1.centerSketchPoint, c2.centerSketchPoint); gc.addEqual(c1, c2)
@@ -359,7 +362,7 @@ def build_oled_window(top_comp, des):
 MOUNT_PARAMS = [
     ('oled_pad_sz', '4 mm', 'OLED tape pad: width (x) of each corner pad'),
     ('oled_tape_t', '0.15 mm', 'OLED double-sided tape thickness between pad and PCB'),
-    ('oled_peg_d', '1.8 mm', 'OLED locating peg diameter (module hole is 2.0)'),
+    ('oled_peg_d', '2.6 mm', 'OLED locating peg diameter (module hole is 2.8, 0.2 mm clearance)'),
     ('oled_peg_len', '0.5 mm', 'OLED locating peg length below the pad underside (short: the module is slid in over the posts, then lifted onto the pegs)'),
 ]
 
@@ -379,12 +382,12 @@ def build_oled_mount(top_comp, des):
     rect4(sk, des, xl, xr, 'oled_front_y - oled_panel_top + 0.1 mm', 'oled_front_y')
     feats.append(ext(top_comp, main_profile(sk), h_up, FE.JoinFeatureOperation, 'OLED pad front', start=z_pad))
     sk = top_comp.sketches.add(top_comp.xYConstructionPlane); sk.name = 'OLED pad rear'
-    rect4(sk, des, xl, xr, 'oled_front_y - oled_pcb_l', 'oled_front_y - oled_pcb_l + oled_panel_top - 0.1 mm')
+    rect4(sk, des, xl, xr, 'oled_front_y - oled_pcb_l', 'oled_front_y - oled_panel_top - oled_panel_h - 0.1 mm')   # stops 0.1 mm short of the glass
     feats.append(ext(top_comp, main_profile(sk), h_up, FE.JoinFeatureOperation, 'OLED pad rear', start=z_pad))
     sk = top_comp.sketches.add(top_comp.xYConstructionPlane); sk.name = 'OLED pegs'
     gc = sk.geometricConstraints; dm = sk.sketchDimensions
-    c1 = circle_at(sk, des, '-(oled_pcb_w / 2 - oled_hole_inset)', 'oled_front_y - oled_hole_inset', 'oled_peg_d')
-    c2 = sk.sketchCurves.sketchCircles.addByCenterRadius(P3(ev_cm(des, '-(oled_pcb_w / 2 - oled_hole_inset)'), ev_cm(des, 'oled_front_y - oled_pcb_l + oled_hole_inset'), 0), ev_cm(des, 'oled_peg_d') / 2)
+    c1 = circle_at(sk, des, '-(oled_hole_dx / 2)', 'oled_front_y - oled_hole_inset', 'oled_peg_d')
+    c2 = sk.sketchCurves.sketchCircles.addByCenterRadius(P3(ev_cm(des, '-(oled_hole_dx / 2)'), ev_cm(des, 'oled_front_y - oled_pcb_l + oled_hole_inset'), 0), ev_cm(des, 'oled_peg_d') / 2)
     gc.addVerticalPoints(c1.centerSketchPoint, c2.centerSketchPoint); gc.addEqual(c1, c2)
     dm.addDistanceDimension(c1.centerSketchPoint, c2.centerSketchPoint, adsk.fusion.DimensionOrientations.VerticalDimensionOrientation, P3(-1, -3, 0)).parameter.expression = 'oled_pcb_l - 2 * oled_hole_inset'
     profs = adsk.core.ObjectCollection.create()
@@ -663,6 +666,25 @@ def build_power_guide(top_comp, des):
     zrect(sk, des, 'pwr_x', 'pwr_z', 'pwr_chan_w', 'pwr_chan_h')
     ext(top_comp, main_profile(sk), 'pwr_floor_y - (y_rear_out - 1 mm)', FE.CutFeatureOperation, 'Power channel',
         start='y_rear_out - 1 mm', target=body)
+    build_power_tube_trim(top_comp, des)
+
+
+def build_power_tube_trim(top_comp, des):
+    """The guide tube (7.2 mm wide) starts 0.3 mm in front of pwr_floor_y; at the rear-left corner the outer wall curves away (r_rear_out),
+    so the tube's outer corner poked out through the skin as a small fin. Cut away everything outside the corner arc in that region."""
+    add_pwr_params(des)
+    H = adsk.fusion.DimensionOrientations
+    body = top_comp.bRepBodies.item(0)
+    sk = top_comp.sketches.add(top_comp.xYConstructionPlane); sk.name = 'Power tube trim'
+    rect4(sk, des, 'pwr_x - 3.9 mm', 'pwr_x - 2.3 mm', 'y_rear_out + 0.65 mm', 'y_rear_out + 2.35 mm')
+    cx, cy = -ev_cm(des, 'shell_w / 2 - r_rear_out'), ev_cm(des, 'y_rear_out + r_rear_out')
+    c = sk.sketchCurves.sketchCircles.addByCenterRadius(P3(cx, cy, 0), ev_cm(des, 'r_rear_out'))
+    sk.sketchDimensions.addDistanceDimension(sk.originPoint, c.centerSketchPoint, H.HorizontalDimensionOrientation, P3(cx / 2, 0.5, 0)).parameter.expression = 'shell_w / 2 - r_rear_out'
+    sk.sketchDimensions.addDistanceDimension(sk.originPoint, c.centerSketchPoint, H.VerticalDimensionOrientation, P3(0.5, cy / 2, 0)).parameter.expression = '-(y_rear_out + r_rear_out)'
+    sk.sketchDimensions.addDiameterDimension(c, P3(cx - 2, cy - 2, 0)).parameter.expression = '2 * r_rear_out'
+    R = ev_cm(des, 'r_rear_out')
+    outside = [pr for pr in sk.profiles if math.hypot(pr.areaProperties().centroid.x - cx, pr.areaProperties().centroid.y - cy) > R]
+    ext(top_comp, outside[0], '10 mm', FE.CutFeatureOperation, 'Power tube trim', start='pwr_z - 5 mm', target=body)
 
 
 def build_power_post_relief(top_comp, des):
@@ -1039,7 +1061,22 @@ def build_stick_cap(root, des, top_comp):
         ci = comp.features.chamferFeatures.createInput2()
         ci.chamferEdgeSets.addEqualDistanceChamferEdgeSet(col, VI('peg_lead'), False)
         comp.features.chamferFeatures.add(ci).name = nm
+    build_cap_button_notch(cc, des)
     return cc
+
+
+def build_cap_button_notch(cc, des):
+    """Rounded-square notch through the cap skirt where face button 2 (front-centre macro button) pokes up into it."""
+    add_fb_params(des)
+    up = des.userParameters
+    if up.itemByName('cap_btn_clr') is None:
+        up.add('cap_btn_clr', VI('0.2 mm'), 'mm', 'Extra clearance per side around a face button where it passes through the stick cap skirt')
+    H = adsk.fusion.DimensionOrientations
+    sk = cc.sketches.add(cc.xYConstructionPlane); sk.name = 'Cap button notch'
+    _, pt = _fb_rsq(sk, des, 0, ev_cm(des, 'mac_cy1'), 'fb_sq + 2 * fb_sq_clr + 2 * cap_btn_clr', 'fb_sq_r + fb_sq_clr + cap_btn_clr')
+    sk.geometricConstraints.addVerticalPoints(sk.originPoint, pt)
+    sk.sketchDimensions.addDistanceDimension(sk.originPoint, pt, H.VerticalDimensionOrientation, P3(1.5, ev_cm(des, 'mac_cy1') / 2, 0)).parameter.expression = '-(mac_cy1)'
+    ext(cc, main_profile(sk), 'fb_proud + 1 mm', FE.CutFeatureOperation, 'Cap button notch', start='top_z', target=cc.bRepBodies.item(0))
 
 
 # ------------------------------------------------------------------ face (macro) buttons
@@ -1375,6 +1412,7 @@ BUMP2_PARAMS = [
     ('bm_cap_fillet', '0.4 mm', 'Cap face edge fillet'),
     ('bm_wall_in_y', 'y_front_out - wall', 'Front wall inner face y'),
     ('bm_wall_out_y', 'y_front_out', 'Front wall outer face y'),
+    ('bm_fl_ztop', '2 mm', 'Flange top is trimmed to this z (above it the PCB front edge, z 2.19 up, would stop the press)'),
     ('bm_fl_in_y', 'bm_act_y + bm_gap', 'Flange inner face y'),
     ('bm_fl_out_y', 'bm_fl_in_y + bm_fl_t', 'Flange outer face y'),
     ('bm_pk_floor_y', 'bm_fl_out_y + bm_pk_axial', 'Pocket floor y'),
@@ -1431,6 +1469,16 @@ def _face_y(body, y_cm, ny):
     raise RuntimeError('face not found at y=%s' % y_cm)
 
 
+def build_bumper_relief(comp, des, body):
+    """Trim the top of the inner flange to bm_fl_ztop so it clears the PCB's front edge as the bumper is pressed in.
+    Stops 0.2 mm short of the flange's outer face so the stem root is untouched."""
+    add_bm_params(des)
+    sk = comp.sketches.add(comp.xZConstructionPlane); sk.name = 'Bumper flange relief'
+    rect4(sk, des, 'bm_x - (bm_fl_w + 2 mm) / 2', 'bm_x + (bm_fl_w + 2 mm) / 2', '-(bm_z + bm_fl_ztop + 3 mm)', '-(bm_z + bm_fl_ztop)')
+    ext(comp, main_profile(sk), 'bm_fl_t - 0.1 mm', FE.CutFeatureOperation, 'Bumper flange relief',
+        start='bm_fl_in_y - 0.1 mm', target=body)
+
+
 def build_bumper(root, des):
     """Printed bumper: inner flange, stem through the slot, wide cap outside the front wall, straddling the seam."""
     add_bm_params(des)
@@ -1439,6 +1487,7 @@ def build_bumper(root, des):
     rrect(sk, des, 'bm_fl_w', 'bm_fl_h', 'bm_fl_r')
     f = ext(comp, main_profile(sk), 'bm_fl_t', FE.NewBodyFeatureOperation, 'Bumper flange', start='bm_fl_in_y')
     body = f.bodies.item(0); body.name = 'Bumper'
+    build_bumper_relief(comp, des, body)
     sk = comp.sketches.add(comp.xZConstructionPlane); sk.name = 'Bumper stem'
     rrect(sk, des, 'bm_stem_w', 'bm_stem_h', 'bm_stem_r')
     ext(comp, main_profile(sk), 'bm_cap_in_y + 0.2 mm - (bm_fl_out_y - 0.2 mm)', FE.JoinFeatureOperation, 'Bumper stem',
@@ -1466,7 +1515,13 @@ BAY_PARAMS = [
     ('bay_hold_clr', '0.1 mm', 'contact holder clearance'),
     ('bay_hold_w', '1.2 mm', 'contact holder cheek thickness'),
     ('bay_hold_top_z', '-1.5 mm', 'contact holder top'),
-    ('bay_clip_w', '11.2 mm', 'rear clip width'),
+    ('bay_clip_w', '11.25 mm', 'rear contact plate width'),
+    ('bay_clip_h', '12 mm', 'rear contact plate height (not counting the 3 x 6.5 mm tab on top)'),
+    ('bay_rail_in', '0.5 mm', 'rear contact retaining rail: overlap over each plate edge'),
+    ('bay_rail_gap', '0.05 mm', 'rear contact retaining rail: clearance in front of the plate face'),
+    ('bay_rail_cell_clr', '0.05 mm', 'rear contact retaining rail: clearance to the cell rear end'),
+    ('bay_rail_z0', '-12.5 mm', 'rear contact retaining rail bottom (the belly panel top is at -12.8)'),
+    ('bay_clip_floor_z', 'bay_axis_z - bay_clip_h / 2 - bay_hold_clr', 'rear contact slot floor: plate centred on the cell axis, 0.1 mm under it'),
     ('bay_blk_w', '10.8 mm', 'front block plate width'),
     ('bay_pan_w', '21.6 mm', 'panel width'),
     ('bay_pan_clr', '0.15 mm', 'panel to shell gap'),
@@ -1482,12 +1537,18 @@ BAY_PARAMS = [
     ('bay_hook_len', '2.5 mm', 'hook tab length past the panel front'),
     ('bay_hook_z0', '-15.2 mm', 'hook tab bottom'),
     ('bay_hook_z1', '-13.8 mm', 'hook tab top'),
-    ('bay_slot_clr', '0.2 mm', 'hook slot clearance'),
+    ('bay_slot_clr', '0.3 mm', 'hook slot clearance (sides and front)'),
     ('bay_bulk_t', 'bay_front_y + 1.55 mm - (bay_pan_y1 + bay_pan_clr)', 'hook pad depth: from the opening front edge to the back of the front holder'),
     ('bay_bulk_x0', 'bay_blk_w / 2 + bay_hold_clr + bay_hold_w', 'hook pads start at the front contact holder cheek outer face'),
     ('bay_bulk_top_z', '-12.0 mm', 'front hook bulkhead top'),
-    ('bay_lip_len', '1.4 mm', 'rear lip: tongue past the panel rear edge, tucked under the curved rear belly so the panel cannot drop into the bay'),
-    ('bay_lip_t', '0.4 mm', 'rear lip thickness (up from the belly plane)'),
+    ('bay_thumb_hw', '4.5 mm', 'thumb pocket half width (x) in the belly behind the panel'),
+    ('bay_thumb_len', '3.5 mm', 'thumb pocket length (y) behind the panel rear edge'),
+    ('bay_tab_clr', '0.2 mm', 'clearance per side of the panel rear tab in the thumb pocket'),
+    ('bay_tab_t', '1.4 mm', 'panel rear tab thickness (up from the belly plane; the thumb pocket floor is about 1.65 up, so this leaves ~0.25 mm)'),
+    ('bay_nail_w', '5 mm', 'fingernail notch width (x) in the panel rear tab end'),
+    ('bay_nail_h', '0.6 mm', 'fingernail notch depth (z) cut down from the tab top face'),
+    ('bay_nail_len', '1.2 mm', 'fingernail notch depth (y) measured from the curved tab end at mid thickness'),
+    ('bay_slot_up', '0.6 mm', 'extra height of the hook slots above the hook tab top (on top of bay_slot_clr)'),
 ]
 
 
@@ -1590,8 +1651,36 @@ def build_bay_shell(bot_comp, des, body):
     ext(c, main_profile(sk), 'bay_pan_t + 1 mm + 0.3 mm', FE.CutFeatureOperation, 'Bay wide opening', start='-bot_d - 1 mm', target=body)
     # thumb pocket in the belly behind the panel
     sk = _xy_rects(c, des, 'Bay thumb pocket', [
-        ('-4.5 mm', '4.5 mm', 'bay_pan_y0 - bay_pan_clr - 3.5 mm', 'bay_pan_y0 - bay_pan_clr')])
+        ('-(bay_thumb_hw)', 'bay_thumb_hw', 'bay_pan_y0 - bay_pan_clr - bay_thumb_len', 'bay_pan_y0 - bay_pan_clr')])
     ext(c, main_profile(sk), '0.6 mm', FE.CutFeatureOperation, 'Bay thumb pocket', start='-bot_d', target=body)
+
+
+def build_bay_rear_slot(c, des, body):
+    """Square off the rear inner corner (the 4 mm roll into the floor) into a contact slot: flat floor at bay_clip_floor_z (the belly
+    skin stays closed), back wall on the rear inner wall plane, sides = the rear cheeks, open to the top and toward the cell. Built
+    before the retention ribs so they run the full height of the slot. Cut to the cheek top so no tangent sliver is left at the curve."""
+    add_bay_params(des)
+    hx = 'bay_clip_w / 2 + bay_hold_clr'
+    sk = _xy_rects(c, des, 'Bay rear contact slot', [
+        ('-(%s)' % hx, '%s' % hx, 'bay_clip_y - bay_hold_clr', 'bay_clip_y + bay_clip_t + 0.2 mm')])
+    ext(c, main_profile(sk), 'bay_hold_top_z - bay_clip_floor_z', FE.CutFeatureOperation, 'Bay rear contact slot',
+        start='bay_clip_floor_z', target=body)
+
+
+def build_bay_rear_rails(c, des, body):
+    """Retaining rails for the rear contact: one on each side wall, just in front of the plate front face, overlapping each plate edge
+    by bay_rail_in. Thickness is whatever fits between the plate and the cell rear end. An anchor block behind each lip is buried in
+    the cheek, because the lip itself sticks out past the cheek end. Rails start above the belly panel (bay_rail_z0) and run to the
+    plate top, so the plate drops in from above behind them."""
+    add_bay_params(des)
+    y0 = 'bay_clip_y + bay_clip_t + bay_rail_gap'; y1 = 'bay_cell_y0 - bay_rail_cell_clr'
+    ya = 'bay_clip_y + bay_clip_t - 0.5 mm'
+    xi = 'bay_clip_w / 2 - bay_rail_in'; hx = 'bay_clip_w / 2 + bay_hold_clr'; xo = 'bay_clip_w / 2 + bay_hold_clr + bay_hold_w'
+    sk = _xy_rects(c, des, 'Bay rear contact rails', [
+        ('-(%s)' % hx, '-(%s)' % xi, y0, y1), ('%s' % xi, '%s' % hx, y0, y1),
+        ('-(%s)' % xo, '-(%s)' % hx, ya, y1), ('%s' % hx, '%s' % xo, ya, y1)])
+    ext(c, all_profiles(sk), 'bay_clip_floor_z + bay_clip_h - bay_rail_z0', FE.JoinFeatureOperation, 'Bay rear contact rails',
+        start='bay_rail_z0', target=body)
 
 
 def build_bay_hook_slots(c, des, body):
@@ -1600,7 +1689,7 @@ def build_bay_hook_slots(c, des, body):
     sk = _xy_rects(c, des, 'Bay hook slots', [
         ('-(bay_hook_x1 + bay_slot_clr)', '-(bay_hook_x0 - bay_slot_clr)', 'bay_pan_y1 + bay_pan_clr - 0.2 mm', 'bay_pan_y1 + bay_hook_len + bay_slot_clr + 0.3 mm'),
         ('bay_hook_x0 - bay_slot_clr', 'bay_hook_x1 + bay_slot_clr', 'bay_pan_y1 + bay_pan_clr - 0.2 mm', 'bay_pan_y1 + bay_hook_len + bay_slot_clr + 0.3 mm')])
-    ext(c, all_profiles(sk), 'bay_hook_z1 + bay_slot_clr - bay_floor_z', FE.CutFeatureOperation, 'Bay hook slots', start='bay_floor_z', target=body)
+    ext(c, all_profiles(sk), 'bay_hook_z1 + bay_slot_clr + bay_slot_up - bay_floor_z', FE.CutFeatureOperation, 'Bay hook slots', start='bay_floor_z', target=body)
 
 
 BAY_PANEL_PARAMS = [
@@ -1667,17 +1756,8 @@ def build_bay_panel(root, des):
     comp = new_component(root, 'BatteryPanel')
     # envelope: the shell's own rear belly curve (YZ sketch: x = -z, y = y), extruded symmetric about x = 0
     sk = comp.sketches.add(comp.yZConstructionPlane); sk.name = 'Panel envelope'
-    rect = rect4(sk, des, 'bot_d - 7 mm', 'bot_d', 'y_rear_out', 'bay_pan_y1')
-    lines = [rect.item(i) for i in range(4)]
-    def horiz(l): return abs(l.startSketchPoint.geometry.y - l.endSketchPoint.geometry.y) < 1e-9
-    bottom = min([l for l in lines if horiz(l)], key=lambda l: l.startSketchPoint.geometry.y)
-    right = max([l for l in lines if not horiz(l)], key=lambda l: l.startSketchPoint.geometry.x)
-    def mid(l):
-        a = l.startSketchPoint.geometry; b = l.endSketchPoint.geometry
-        return P3((a.x + b.x) / 2, (a.y + b.y) / 2, 0)
-    arc = sk.sketchCurves.sketchArcs.addFillet(right, mid(right), bottom, mid(bottom), ev_cm(des, 'edge_r'))
-    g = arc.centerSketchPoint.geometry
-    sk.sketchDimensions.addRadialDimension(arc, P3(g.x - 0.3, g.y + 0.3, 0)).parameter.expression = 'edge_r'
+    # plain rectangle: the underside stays flat to the rear (the rear belly arc is only on the tab end, see build_bay_tab_trim_notch)
+    rect4(sk, des, 'bot_d - 7 mm', 'bot_d', 'y_rear_out', 'bay_pan_y1')
     inp = comp.features.extrudeFeatures.createInput(main_profile(sk), FE.NewBodyFeatureOperation)
     inp.setSymmetricExtent(VI('bay_pan_w'), True)
     f = comp.features.extrudeFeatures.add(inp); f.name = 'Panel envelope'
@@ -1710,12 +1790,42 @@ def build_bay_panel(root, des):
 
 
 def build_bay_panel_lip(comp, des):
-    """Rear lip on the battery panel: a thin tongue past the rear edge, tail width, tucked under the curved rear belly.
-    Stops the panel dropping into the bay (the front hooks only hold the other end)."""
+    """Rear tab on the battery panel: a flat tongue past the rear edge that sits flush in the thumb pocket behind the panel.
+    Solid and thick (bay_tab_t, fills the pocket depth less a gap) and buried 2 mm into the panel body so it reads as part of the panel."""
     add_bay_params(des)
     body = comp.bRepBodies.item(0)
-    sk = _xy_rects(comp, des, 'Panel rear lip', [('-(bay_pan_nw / 2)', 'bay_pan_nw / 2', 'bay_pan_y0 - bay_lip_len', 'bay_pan_y0 + 0.5 mm')])
-    ext(comp, main_profile(sk), 'bay_lip_t', FE.JoinFeatureOperation, 'Panel rear lip', start='-bot_d', target=body)
+    sk = _xy_rects(comp, des, 'Panel rear tab', [('-(bay_thumb_hw - bay_tab_clr)', 'bay_thumb_hw - bay_tab_clr',
+                                                  'bay_pan_y0 - bay_pan_clr - bay_thumb_len + bay_tab_clr', 'bay_pan_y0 + 2 mm')])
+    ext(comp, main_profile(sk), 'bay_tab_t', FE.JoinFeatureOperation, 'Panel rear tab', start='-bot_d', target=body)
+    build_bay_tab_trim_notch(comp, des, body)
+
+
+def build_bay_tab_trim_notch(comp, des, body):
+    """Trim the tab's rear end to the shell's rear belly arc (radius edge_r, centred y_rear_out + edge_r, z -bot_d + edge_r*sin(edge_oh)),
+    so it ends flush with the outer skin, then cut a small fingernail notch in its top face (see build_bay_tab_notch)."""
+    add_bay_params(des)
+    H = adsk.fusion.DimensionOrientations
+    # YZ plane sketch: sketch x = -z, sketch y = y
+    sk = comp.sketches.add(comp.yZConstructionPlane); sk.name = 'Panel tab end trim'
+    rect4(sk, des, 'bot_d - 3.5 mm', 'bot_d + 0.2 mm', 'y_rear_out - 0.35 mm', 'y_rear_out + 1.85 mm')
+    cx, cy = ev_cm(des, 'bot_d - edge_r * sin(edge_oh)'), ev_cm(des, 'y_rear_out + edge_r')
+    c = sk.sketchCurves.sketchCircles.addByCenterRadius(P3(cx, cy, 0), ev_cm(des, 'edge_r'))
+    sk.sketchDimensions.addDistanceDimension(sk.originPoint, c.centerSketchPoint, H.HorizontalDimensionOrientation, P3(cx / 2, 0.5, 0)).parameter.expression = 'bot_d - edge_r * sin(edge_oh)'
+    sk.sketchDimensions.addDistanceDimension(sk.originPoint, c.centerSketchPoint, H.VerticalDimensionOrientation, P3(0.5, cy / 2, 0)).parameter.expression = '-(y_rear_out + edge_r)'
+    sk.sketchDimensions.addDiameterDimension(c, P3(cx + 2, cy - 2, 0)).parameter.expression = '2 * edge_r'
+    R = ev_cm(des, 'edge_r')
+    outside = [pr for pr in sk.profiles if math.hypot(pr.areaProperties().centroid.x - cx, pr.areaProperties().centroid.y - cy) > R]
+    ext(comp, outside[0], '2 * bay_thumb_hw', FE.CutFeatureOperation, 'Panel tab end trim', start='-bay_thumb_hw', target=body)
+    build_bay_tab_notch(comp, des, body)
+
+
+def build_bay_tab_notch(comp, des, body):
+    """Fingernail notch: a shallow rebate across the top face of the tab end, so a nail fits into the gap between the shell and the panel."""
+    add_bay_params(des)
+    sk = comp.sketches.add(comp.xZConstructionPlane); sk.name = 'Panel tab nail notch'
+    rect4(sk, des, '-(bay_nail_w / 2)', 'bay_nail_w / 2', 'bot_d - bay_tab_t - 0.2 mm', 'bot_d - bay_tab_t + bay_nail_h')
+    ext(comp, main_profile(sk), 'bay_nail_len + 0.8 mm', FE.CutFeatureOperation, 'Panel tab nail notch',
+        start='bay_pan_y0 - bay_pan_clr - bay_thumb_len + bay_tab_clr', target=body)
 
 
 def build_bay_grooves(bot_comp, des, body):
@@ -2000,10 +2110,10 @@ TRIG2_PARAMS = [
     ('trig_nose_y', 'trig_ramp_y - 0.4 mm', 'trigger front trim: 0.4 mm behind the front wall inner face'),
     ('trig_tip_z', '-bot_d + 0.3 mm', 'trigger tip trim: 0.3 mm above the belly'),
     ('trig_post_d', '2.9 mm', 'pivot post diameter (D shape, as v1.1)'),
-    ('trig_post_flat', '0.55 mm', 'pivot post flat depth, on the +z side'),
+    ('trig_post_flat', '0.55 mm', 'pivot post flat depth, on the rear (-y) side (the post has this one flat only)'),
     ('trig_bore_clr', '0.15 mm', 'hub bore clearance per side around the post'),
     ('trig_sock_l', '-10.35 mm', 'left post socket end (x) in the drop position; the closed pocket behind it takes the post when it slides left'),
-    ('trig_sock_r', '11.05 mm', 'right post socket end (x): room for the post to be dropped in 0.5 mm (trig_lk_slide) right of its locked position'),
+    ('trig_sock_r', '11.8 mm', 'right post socket end (x): room for the post to be dropped in 1 mm (lk_slide) right of its locked position; end piece 0.85 mm under the lip when locked'),
     ('trig_sock_clr', '0.15 mm', 'socket clearance per side around the post'),
     ('trig_post_x0', 'trig_sock_l + 0.15 mm', 'post left end'),
     ('trig_post_x1', 'trig_sock_r - 0.15 mm', 'post right end'),
@@ -2051,21 +2161,27 @@ def _clip(pts, keep):
     return out
 
 
-def _d_profile(c, des, name, dia_e, flat_e):
-    """YZ sketch: circle of diameter dia_e about the pivot with a flat chord on the +z side, flat_e from the centre.
-    Returns (sketch, D profile)."""
+def _rear_d_profile(c, des, name, dia_e, flat_e, p):
+    """YZ sketch: circle of diameter dia_e about the pivot with ONE flat chord on the rear (-y) side, flat_e from the centre.
+    The flat is the post's only flat: it keys the post to the trigger bore and is the face the post prints on.
+    Returns (sketch, D profile). p = 'trig' or 'pt' (parameter prefix)."""
     sk = c.sketches.add(c.yZConstructionPlane); sk.name = name
-    circ = circle_at(sk, des, '-(trig_piv_z)', 'trig_piv_y', dia_e)
-    cx = circ.centerSketchPoint.geometry.x
+    circ = circle_at(sk, des, '-(%s_piv_z)' % p, '%s_piv_y' % p, dia_e)       # sketch (x_s, y_s) = (-z, y)
+    cy = circ.centerSketchPoint.geometry.y
     L = sk.sketchCurves.sketchLines; dm = sk.sketchDimensions; O = sk.originPoint
-    xc = cx - ev_cm(des, flat_e)
-    ln = L.addByTwoPoints(P3(xc, ev_cm(des, 'trig_piv_y - 3 mm'), 0), P3(xc, ev_cm(des, 'trig_piv_y + 3 mm'), 0))
-    sk.geometricConstraints.addVertical(ln)
+    yc = cy - ev_cm(des, flat_e)
+    x0, x1 = ev_cm(des, '-(%s_piv_z) - 2.5 mm' % p), ev_cm(des, '-(%s_piv_z) + 2.5 mm' % p)
+    ln = L.addByTwoPoints(P3(x0, yc, 0), P3(x1, yc, 0))
+    sk.geometricConstraints.addHorizontal(ln)
     HO = adsk.fusion.DimensionOrientations
-    dm.addDistanceDimension(circ.centerSketchPoint, ln.startSketchPoint, HO.HorizontalDimensionOrientation, P3(xc, ev_cm(des, 'trig_piv_y') - 0.5, 0)).parameter.expression = flat_e
-    dm.addDistanceDimension(O, ln.startSketchPoint, HO.VerticalDimensionOrientation, P3(xc + 1, ev_cm(des, 'trig_piv_y - 3 mm') / 2, 0)).parameter.expression = 'trig_piv_y - 3 mm'
-    dm.addDistanceDimension(O, ln.endSketchPoint, HO.VerticalDimensionOrientation, P3(xc + 1, ev_cm(des, 'trig_piv_y + 3 mm') / 2, 0)).parameter.expression = 'trig_piv_y + 3 mm'
-    return sk, max(sk.profiles, key=lambda p: p.areaProperties().area)
+    dm.addDistanceDimension(circ.centerSketchPoint, ln.startSketchPoint, HO.VerticalDimensionOrientation, P3(x0 - 0.5, (cy + yc) / 2, 0)).parameter.expression = flat_e
+    dm.addDistanceDimension(O, ln.startSketchPoint, HO.HorizontalDimensionOrientation, P3((x0) / 2, yc - 0.5, 0)).parameter.expression = '-(%s_piv_z) - 2.5 mm' % p
+    dm.addDistanceDimension(O, ln.endSketchPoint, HO.HorizontalDimensionOrientation, P3((x1) / 2, yc - 1.0, 0)).parameter.expression = '-(%s_piv_z) + 2.5 mm' % p
+    return sk, max(sk.profiles, key=lambda pr: pr.areaProperties().area)
+
+
+def _d_profile(c, des, name, dia_e, flat_e):
+    return _rear_d_profile(c, des, name, dia_e, flat_e, 'trig')
 
 
 def build_trigger(root, des):
@@ -2112,7 +2228,7 @@ def build_trigger(root, des):
 def build_trigger_post(root, des):
     add_trig2_params(des)
     c = new_component(root, 'TriggerPost')
-    sk, prof = _d_profile(c, des, 'Trigger post D', 'trig_post_d', 'trig_post_d / 2 - trig_post_flat')
+    sk, prof = _d_profile(c, des, 'Trigger post D', 'trig_post_d', 'trig_post_d / 2 - trig_post_flat')   # one flat, rear side, full length
     ext(c, prof, 'trig_post_x1 - trig_post_x0', FE.NewBodyFeatureOperation, 'Trigger post', start='trig_post_x0')
     build_post_lock_ends(c, des, 'trig')
     c.bRepBodies.item(0).name = 'TriggerPost'
@@ -2136,12 +2252,12 @@ def build_trigger_sockets(c, des, body):
 def add_lock_params(des, p):
     up = des.userParameters
     for n, e, cm in (
-        ('lk_slide', '0.5 mm', 'post slide from the drop position to the locked position (toward -x)'),
+        ('lk_slide', '1 mm', 'post slide from the drop position to the locked position (toward -x)'),
         ('lk_c', '10.1 mm', 'lip / post neck centre (x) in the drop position'),
-        ('lk_lip_w', '0.6 mm', 'lip width (x)'),
+        ('lk_lip_w', '1.2 mm', 'lip width (x): at least 3 extrusion lines so it prints solid'),
         ('lk_gap', '2.3 mm', 'gap between the two lips (y): clears the neck, stops the end collar'),
         ('lk_neck_d', '2.0 mm', 'post neck diameter'),
-        ('lk_neck_w', '0.9 mm', 'post neck width (x): lip width + 0.15 mm each side'),
+        ('lk_neck_w', '1.5 mm', 'post neck width (x): lip width + 0.15 mm each side'),
         ('lk_lip_dz', '0.93 mm', 'lip underside height above the pivot axis (0.05 mm over the collar at the lip edge)'),
         ('lk_lip_top', '1.5 mm', 'lip top (z)'),
         ('lk_collar_x0', '9.1 mm', 'post: round end piece starts here (x)')):
@@ -2157,37 +2273,36 @@ def build_post_lock_shell(c, des, body, p):
     sk = c.sketches.add(c.yZConstructionPlane); sk.name = 'Post pocket left'
     circle_at(sk, des, '-(%s_piv_z)' % p, '%s_piv_y' % p, '%s_post_d + 2 * %s_sock_clr' % (p, p))
     ext(c, all_profiles(sk), '%s_lk_slide' % p, FE.CutFeatureOperation, 'Post pocket left', neg=True, start='%s_sock_l' % p, target=body)
+    build_post_lips(c, des, body, p)
+
+
+def build_post_lips(c, des, body, p):
+    """The two retaining lips over the right socket (wedge profile, see below)."""
+    add_lock_params(des, p)
     half = '(%s_post_d / 2 + %s_sock_clr + 0.2 mm)' % (p, p)
-    left, right = '-(%s_lk_lip_top)' % p, '-(%s_piv_z + %s_lk_lip_dz)' % (p, p)
-    for nm, y0, y1 in (('front', '%s_piv_y + %s_lk_gap / 2' % (p, p), '%s_piv_y + %s' % (p, half)),
-                       ('rear', '%s_piv_y - %s' % (p, half), '%s_piv_y - %s_lk_gap / 2' % (p, p))):
+    gh = '(%s_lk_gap / 2)' % p
+    zb = '(%s_piv_z + %s_lk_lip_dz)' % (p, p)          # lip tip underside (world z)
+    # Each lip is a wedge: vertical tip face, 45 deg underside sloping down into the wall, so it prints without support (a flat 0.45 mm
+    # overhang closed up and left the post unretained). The sketch x axis is -z.
+    for nm, sg in (('front', 1), ('rear', -1)):
+        Y = lambda off: ('%s_piv_y + %s' % (p, off)) if sg > 0 else ('%s_piv_y - %s' % (p, off))
         sk = c.sketches.add(c.yZConstructionPlane); sk.name = 'Post lip ' + nm
-        rect4(sk, des, left, right, y0, y1)
+        poly_pts(sk, des, [('-(%s)' % zb, Y(gh)),
+                           ('-(%s - (%s - %s))' % (zb, half, gh), Y(half)),
+                           ('-(%s_lk_lip_top)' % p, Y(half)),
+                           ('-(%s_lk_lip_top)' % p, Y(gh))])
         ext(c, all_profiles(sk), '%s_lk_lip_w' % p, FE.JoinFeatureOperation, 'Post lip ' + nm, start='%s_lk_c - %s_lk_lip_w / 2' % (p, p), target=body)
 
 
 def build_post_lock_ends(c, des, p, dprofile_name=None):
-    """Post: round end piece (the D flat would let the end slip under the lips) and the neck ring cut."""
+    """Post neck ring cut (the end collar beside it is the rear-flatted post itself; the lips catch it above the flat)."""
     add_lock_params(des, p)
-    sk = c.sketches.add(c.yZConstructionPlane); sk.name = 'Post end piece'
-    circle_at(sk, des, '-(%s_piv_z)' % p, '%s_piv_y' % p, '%s_post_d' % p)
-    ext(c, all_profiles(sk), '%s_post_x1 - %s_lk_collar_x0' % (p, p), FE.JoinFeatureOperation, 'Post end piece', start='%s_lk_collar_x0' % p, target=c.bRepBodies.item(0))
     sk = c.sketches.add(c.yZConstructionPlane); sk.name = 'Post neck'
     c1 = circle_at(sk, des, '-(%s_piv_z)' % p, '%s_piv_y' % p, '%s_post_d + 1 mm' % p)
     c2 = sk.sketchCurves.sketchCircles.addByCenterRadius(c1.centerSketchPoint, ev_cm(des, '%s_lk_neck_d' % p) / 2)
     sk.sketchDimensions.addDiameterDimension(c2, P3(0.0, 0.0, 0.0)).parameter.expression = '%s_lk_neck_d' % p
     ring = profile_by_loops(sk, 2)[0]
     ext(c, ring, '%s_lk_neck_w' % p, FE.CutFeatureOperation, 'Post neck', start='%s_lk_c - %s_lk_neck_w / 2' % (p, p), target=c.bRepBodies.item(0))
-    # full-length print flat on the rear (-y) side: runs across the collars and neck so the post prints on one flat face
-    up = des.userParameters
-    if up.itemByName('trig_post_side') is None:
-        up.add('trig_post_side', VI('0.55 mm'), 'mm', 'Depth of the full-length print flat on the rear (-y) side of the post (across the collars and neck; the D flat and the lock are untouched)')
-    pin = c.constructionPlanes.createInput()
-    pin.setByOffset(c.xZConstructionPlane, VI('%s_piv_y - (%s_post_d / 2 - trig_post_side)' % (p, p)))
-    pl = c.constructionPlanes.add(pin); pl.name = 'Post print flat plane'
-    sk = c.sketches.add(pl); sk.name = 'Post print flat'
-    rect4(sk, des, '-12 mm', '12 mm', '-6 mm', '6 mm')
-    ext(c, all_profiles(sk), '%s_post_d' % p, FE.CutFeatureOperation, 'Post print flat', neg=True, target=c.bRepBodies.item(0))
 
 
 # ---------------------------------------------------------------- torsion spring mount (v2) ----
@@ -2638,10 +2753,10 @@ PT2_PARAMS = [
     ('pt_tip_z', '-pouch_bot_d + 0.3 mm', 'trigger tip trim: 0.3 mm above the belly'),
     ('pt_flat_len', '3.2 mm', 'length (y) of the flat bottom face at pt_tip_z (was 6.3 mm before the chamfer); the blade underside behind it is chamfered up to the lobe'),
     ('pt_post_d', '2.9 mm', 'pivot post diameter (D shape, as v1.1)'),
-    ('pt_post_flat', '0.55 mm', 'pivot post flat depth, on the +z side'),
+    ('pt_post_flat', '0.55 mm', 'pivot post flat depth, on the rear (-y) side (the post has this one flat only)'),
     ('pt_bore_clr', '0.15 mm', 'hub bore clearance per side around the post'),
     ('pt_sock_l', '-10.35 mm', 'left post socket end (x) in the drop position; the closed pocket behind it takes the post when it slides left'),
-    ('pt_sock_r', '11.05 mm', 'right post socket end (x): room for the post to be dropped in 0.5 mm (trig_lk_slide) right of its locked position'),
+    ('pt_sock_r', '11.8 mm', 'right post socket end (x): room for the post to be dropped in 1 mm (lk_slide) right of its locked position; end piece 0.85 mm under the lip when locked'),
     ('pt_sock_clr', '0.15 mm', 'socket clearance per side around the post'),
     ('pt_post_x0', 'pt_sock_l + 0.15 mm', 'post left end'),
     ('pt_post_x1', 'pt_sock_r - 0.15 mm', 'post right end'),
@@ -2677,20 +2792,7 @@ def add_pt2_params(des):
 
 
 def _pt_d_profile(c, des, name, dia_e, flat_e):
-    """YZ sketch: circle of diameter dia_e about the pivot with a flat chord on the +z side, flat_e from the centre.
-    Returns (sketch, D profile)."""
-    sk = c.sketches.add(c.yZConstructionPlane); sk.name = name
-    circ = circle_at(sk, des, '-(pt_piv_z)', 'pt_piv_y', dia_e)
-    cx = circ.centerSketchPoint.geometry.x
-    L = sk.sketchCurves.sketchLines; dm = sk.sketchDimensions; O = sk.originPoint
-    xc = cx - ev_cm(des, flat_e)
-    ln = L.addByTwoPoints(P3(xc, ev_cm(des, 'pt_piv_y - 3 mm'), 0), P3(xc, ev_cm(des, 'pt_piv_y + 3 mm'), 0))
-    sk.geometricConstraints.addVertical(ln)
-    HO = adsk.fusion.DimensionOrientations
-    dm.addDistanceDimension(circ.centerSketchPoint, ln.startSketchPoint, HO.HorizontalDimensionOrientation, P3(xc, ev_cm(des, 'pt_piv_y') - 0.5, 0)).parameter.expression = flat_e
-    dm.addDistanceDimension(O, ln.startSketchPoint, HO.VerticalDimensionOrientation, P3(xc + 1, ev_cm(des, 'pt_piv_y - 3 mm') / 2, 0)).parameter.expression = 'pt_piv_y - 3 mm'
-    dm.addDistanceDimension(O, ln.endSketchPoint, HO.VerticalDimensionOrientation, P3(xc + 1, ev_cm(des, 'pt_piv_y + 3 mm') / 2, 0)).parameter.expression = 'pt_piv_y + 3 mm'
-    return sk, max(sk.profiles, key=lambda p: p.areaProperties().area)
+    return _rear_d_profile(c, des, name, dia_e, flat_e, 'pt')
 
 
 def build_pt_trigger(root, des):
@@ -3294,9 +3396,10 @@ def _pol_text(sk, des, text, h_expr, side, yc_expr, len_expr, zf=None):
 
 
 def build_bay_polarity(c, des, body, sides=(1, -1)):
-    """Engrave + / - at the two ends of both ledges, and the cell note split across the ledges (LI-ION right, 14500 left)."""
+    """Engrave + / - at the two ends of both ledges. (The cell note moved to the battery panel: engraved on these downward-facing
+    ledges it prints against supports and comes out ragged, see build_bay_panel_marks.)"""
     add_pol_params(des)
-    for side, nm, note in [t for t in ((1, 'Polarity marks right ledge', 'LI-ION'), (-1, 'Polarity marks left ledge', '14500')) if t[0] in sides]:
+    for side, nm, note in [t for t in ((1, 'Polarity marks right ledge', None), (-1, 'Polarity marks left ledge', None)) if t[0] in sides]:
         sk = c.sketches.add(ledge_face(body, side)); sk.name = nm
         texts = adsk.core.ObjectCollection.create()
         texts.add(_pol_text(sk, des, '+', 'pol_h', side, 'pol_y_lo + pol_edge', '3 mm'))
@@ -3304,6 +3407,66 @@ def build_bay_polarity(c, des, body, sides=(1, -1)):
         if note:
             texts.add(_pol_text(sk, des, note, 'pol_note_h', side, '(pol_y_lo + pol_y_hi) / 2', '19 mm'))
         ext(c, texts, 'pol_depth', FE.CutFeatureOperation, 'Engrave ' + nm.lower(), neg=True, target=body)
+
+
+# ---------------------------------------------------------------- battery panel inner face: polarity marks + cell note ----
+# The panel prints outer face down, so its inner (cell side) face is an upward-facing top surface and engraved text prints cleanly there
+# (the same text on the shell ledges, which face down onto supports, did not). Two flat strips beside the cell scoop, one per side:
+# + at the rear end, - at the front end (rear = palm end = +), the note between them. Text reads rear -> front, glyph tops toward -x.
+PANEL_MARK_PARAMS = [
+    ('pp_h', '2.2 mm', 'panel mark text height (strip is about 2.9 mm wide)'),
+    ('pp_depth', '0.5 mm', 'panel mark engraving depth'),
+    ('pp_x', '(sqrt((bay_cell_d / 2 + bay_trench_clr) * (bay_cell_d / 2 + bay_trench_clr) - (bay_pan_t - bot_d - bay_axis_z) * (bay_pan_t - bot_d - bay_axis_z)) + (bay_pan_w / 2 - bay_arm_t - bay_slit_w)) / 2',
+     'x of the strip centre line (abs): between the cell scoop edge at the panel top and the snap arm slit'),
+    ('pp_y_lo', 'bay_pan_step_y + 1 mm', 'rear end of the marked strip'),
+    ('pp_y_hi', 'bay_pan_y1 - 1 mm', 'front end of the marked strip'),
+    ('pp_edge', '2.4 mm', 'centre of the + and - marks from the strip ends'),
+]
+
+
+def add_panel_mark_params(des):
+    add_bay_panel_params(des)
+    up = des.userParameters
+    for n, e, c in PANEL_MARK_PARAMS:
+        pr = up.itemByName(n)
+        if pr is None: up.add(n, VI(e), 'mm', c)
+        else: pr.expression = e
+
+
+def _panel_text(sk, des, text, side, yc_expr, len_expr):
+    """Text along a fully constrained construction line parallel to y on an XY sketch (model x, y = sketch x, y), centred on x = side * pp_x."""
+    H = adsk.fusion.DimensionOrientations
+    hv = ev_cm(des, 'pp_h'); xb = side * ev_cm(des, 'pp_x') + POL_CAP * hv   # tops toward -x
+    yc = ev_cm(des, yc_expr); ln = ev_cm(des, len_expr)
+    line = sk.sketchCurves.sketchLines.addByTwoPoints(P3(xb, yc - ln / 2, 0), P3(xb, yc + ln / 2, 0))
+    line.isConstruction = True
+    sk.geometricConstraints.addVertical(line)
+    dm = sk.sketchDimensions
+    uexpr = ('(pp_x) + %g * (pp_h)' if side > 0 else '-(pp_x) + %g * (pp_h)') % POL_CAP
+    d = dm.addDistanceDimension(sk.originPoint, line.startSketchPoint, H.HorizontalDimensionOrientation, P3(xb / 2, yc - ln / 2 - 0.3, 0))
+    _signed_dim(d, uexpr if side > 0 else '(pp_x) - %g * (pp_h)' % POL_CAP, lambda: line.startSketchPoint.geometry.x, xb)
+    dm.addDistanceDimension(line.startSketchPoint, line.endSketchPoint, H.VerticalDimensionOrientation, P3(xb + 0.3, yc, 0)).parameter.expression = len_expr
+    d = dm.addDistanceDimension(sk.originPoint, line.startSketchPoint, H.VerticalDimensionOrientation, P3(xb - 0.3, (yc - ln / 2) / 2, 0))
+    _signed_dim(d, '(%s) - (%s) / 2' % (yc_expr, len_expr), lambda: line.startSketchPoint.geometry.y, yc - ln / 2)
+    ti = sk.sketchTexts.createInput2(text, hv)
+    ti.fontName = POL_FONT; ti.textStyle = adsk.fusion.TextStyles.TextStyleBold
+    ti.setAsAlongPath(line, True, adsk.core.HorizontalAlignments.CenterHorizontalAlignment, 0)
+    t = sk.sketchTexts.add(ti)
+    t.heightParameter.expression = 'pp_h'
+    return t
+
+
+def build_bay_panel_marks(comp, des):
+    """Engrave + / - and the cell note (LI-ION right strip, 14500 left strip) into the panel's inner face."""
+    add_panel_mark_params(des)
+    body = comp.bRepBodies.item(0)
+    for side, nm, note in ((1, 'Panel marks right', 'LI-ION'), (-1, 'Panel marks left', '14500')):
+        sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = nm
+        texts = adsk.core.ObjectCollection.create()
+        texts.add(_panel_text(sk, des, '+', side, 'pp_y_lo + pp_edge', '3 mm'))
+        texts.add(_panel_text(sk, des, '\u2212', side, 'pp_y_hi - pp_edge', '3 mm'))
+        texts.add(_panel_text(sk, des, note, side, '(pp_y_lo + pp_y_hi) / 2', '19 mm'))
+        ext(comp, texts, 'pp_depth', FE.CutFeatureOperation, 'Engrave ' + nm.lower(), neg=True, start='bay_pan_t - bot_d', target=body)
 
 
 # ---------------------------------------------------------------- 14500 bay contact retention (standard shell only)
@@ -3370,15 +3533,10 @@ def build_bay_retention(c, des, body):
 # ---------------------------------------------------------------- battery contact fixes (print test 2) ----
 # 1. Wire hole through the front holder backing, centred on the spring contact's pin (x 0, cell axis): the wire is soldered to the
 #    pin end and goes out to the JST through this hole.
-# 2. Snap hooks on the rear (positive) clip pocket: the clip drops in between the cheeks, the plate shoulders push the hook lugs
-#    apart (ramped top), and the lugs then sit 0.1 mm over the plate's top edge so it cannot lift out.
+# (A snap-hook overhang over the rear clip was tried and removed: it printed badly and did not hold the contact.)
 BAY_FIX_PARAMS = [
     ('bay_wire_hole_d', '3.5 mm', 'wire hole through the front holder backing (centred on the spring pin; pin is 3.8 mm)'),
     ('bay_wire_hole_len', '2.1 mm', 'wire hole cut length from the plate pocket front face (backing is 1.45 mm)'),
-    ('bay_hook_ov', '0.4 mm', 'rear clip snap hook overlap onto the plate shoulder'),
-    ('bay_hook_gap', '0.1 mm', 'gap between the plate top edge and the hook underside'),
-    ('bay_hook_h', '0.9 mm', 'hook height at the cheek (the ramped top leaves h - overlap at the tip)'),
-    ('bay_hook_y1', 'bay_clip_y + 0.65 mm', 'hook front end (y): covers the 0.5 mm plate sheet plus 0.15 mm'),
 ]
 
 
@@ -3401,19 +3559,3 @@ def build_bay_wire_hole(c, des, body):
     dm.addDistanceDimension(sk.originPoint, circ.centerSketchPoint, adsk.fusion.DimensionOrientations.VerticalDimensionOrientation, P3(1.5, cy / 2, 0)).parameter.expression = '-(bay_axis_z)'
     dm.addDiameterDimension(circ, P3(0.5, cy + 0.5, 0)).parameter.expression = 'bay_wire_hole_d'
     ext(c, all_profiles(sk), 'bay_wire_hole_len', FE.CutFeatureOperation, 'Bay wire hole', start='bay_front_y', target=body)
-
-
-def build_bay_clip_hooks(c, des, body):
-    add_bay_fix_params(des)
-    xr = 'bay_clip_w / 2 + bay_hold_clr'
-    y0 = 'bay_clip_y - bay_hold_clr'
-    sk = _xy_rects(c, des, 'Bay clip hook posts', [('-(%s + bay_hold_w)' % xr, '-(%s)' % xr, y0, 'bay_hook_y1'),
-                                                 ('%s' % xr, '%s + bay_hold_w' % xr, y0, 'bay_hook_y1')])
-    ext(c, all_profiles(sk), 'bay_hook_gap + bay_hook_h', FE.JoinFeatureOperation, 'Bay clip hook posts', start='bay_hold_top_z', target=body)
-    zl = 'bay_hold_top_z + bay_hook_gap'; zh = '(bay_hold_top_z + bay_hook_gap + bay_hook_h)'
-    sk = c.sketches.add(c.xZConstructionPlane); sk.name = 'Bay clip hook lugs'
-    for s_ in (1, -1):
-        X = (lambda e: '(%s)' % e) if s_ > 0 else (lambda e: '-(%s)' % e)
-        poly_pts(sk, des, [(X('%s + 0.1 mm' % xr), '-(%s)' % zl), (X('%s - bay_hook_ov' % xr), '-(%s)' % zl),
-                           (X('%s - bay_hook_ov' % xr), '-(%s - bay_hook_ov)' % zh), (X('%s + 0.1 mm' % xr), '-(%s)' % zh)])
-    ext(c, all_profiles(sk), 'bay_hook_y1 - (%s)' % y0, FE.JoinFeatureOperation, 'Bay clip hook lugs', start=y0, target=body)

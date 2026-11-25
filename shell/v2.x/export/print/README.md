@@ -17,7 +17,7 @@ use slicer supports where noted. Source of truth: `../../fusion/SnipsShell_v2.f3
 | SideButtonL1/L2, R1/R2 | flat base on the bed, D stem up | none |
 | Trigger | big flat blade face on the bed, spring ear up | none expected |
 | Trigger_Pouch | big flat blade face on the bed, spring ear up | none expected. Pouch variant only (use `Trigger` with `BottomShell`) |
-| TriggerPost | lying along X on its full-length rear flat (a second flat, `trig_post_side` 0.55 mm deep, runs across the round collars and neck; the D flat and the lock are untouched) | none |
+| TriggerPost | lying along X on its single rear flat (`trig_post_flat` 0.55 mm, the D flat: the post has no other flat) | none |
 
 ## Variants
 Standard build: `BottomShell` + `Trigger` + `BatteryPanel` (14500 cell). Pouch build: `BottomShell_Pouch` + `Trigger_Pouch` (YDL103035
@@ -32,8 +32,9 @@ them) for a 3 x 1 mm strap loop. Slots are narrow and tall with rounded ends, so
 ## 14500 bay ceiling and markings (BottomShell only)
 - 0.7 mm printed ceiling over the cell at the rear (positive) end and the front (negative) end of the bay, open under the XBee module,
   radial clearance to the cell unchanged (`bay_ceil_*` parameters). Printed belly down the new part is a domed roof over the cell trench: the surface is steeper than 45 deg up to the arc tips, then the last ~10.6 mm (between the arc tips) curves over to horizontal and has to bridge. Expect it to print with bridge settings; check the preview and add slicer supports only if the dome sags (not yet test-printed).
-- Engraved + / - at the two ends of both ledges and "Li-ion 14500 only" on the right ledge (`pol_*` parameters, 0.5 mm deep).
-  The ledge is a bridge when printed belly down, so the letters may print a little rough.
+- Engraved + / - at the two ends of both ledges (`pol_*` parameters, 0.6 mm deep). The ledge faces down onto supports when printed belly down, so
+  only the simple + and - marks go there; the text did not print cleanly. The cell note ("LI-ION" right, "14500" left) and a second set of + / - are
+  engraved in the inner (cell side) face of `BatteryPanel`, which prints face up (`pp_*` parameters, 0.5 mm deep, reading rear to front).
 - The negative end continues the same round ceiling to the front contact holder (no flat roof; the bore bridges the same ~10.6 mm as the rest of the ceiling). The battery opening and `BatteryPanel` are ~6.5 mm longer than before so the cell drops straight out; the panel's hook tabs go under two pads beside the contact holder.
 
 - Contact pockets have crush ribs (0.05 mm interference per side, `bay_ret_*`), a lead-in chamfer and wire relief steps in the cheek tops. Test-print the pocket first; if a contact is too tight or loose change `bay_ret_rib_int` rather than the clearance.
@@ -51,3 +52,8 @@ them) for a 3 x 1 mm strap loop. Slots are narrow and tall with rounded ends, so
 Run from `tools/` (they find `export/stl|step` and `print/` from their own location; override with `SNIPS_EXPORT_DIR` / `SNIPS_PRINT_DIR`):
 `python export_print.py` (STL) and `python step_orient.py` (STEP). Orientations live in `export_print_cfg.py`.
 Needs numpy, scipy, trimesh, rtree and build123d. (`build_sup.py`, `gen_buck.py`, `gen_supports.py` are carried over from v1.1 and not used for v2.)
+
+## Trigger post lock (BottomShell and BottomShell_Pouch)
+The post is dropped into the U-slots with its neck lined up with the two lips, then pushed 1 mm toward -x (`lk_slide`): the left end goes into a
+closed pocket and the end piece goes under the lips. Each lip is a wedge 1.2 mm wide (`lk_lip_w`) with a vertical tip face and a 45 deg underside
+sloping into the wall, so it prints without supports. The earlier 0.6 mm square-underside lips did not print on a 0.4 mm nozzle and the post fell out.

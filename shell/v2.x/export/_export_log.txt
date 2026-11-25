@@ -94,3 +94,62 @@ Print files regenerated for the new/changed parts only (unchanged print STEPs we
 
 2026-11-23 (night): front screw bores re-cut through the trigger ramp floor
   - The ramp floor (added after the screw bores were cut) refilled the front two bores with a thin skin that left each hole D-shaped where it meets the head well. New 'Screw bores (ramp)' cut (screw_clr_d, same extent as 'Screw bores') after 'Screw head wells (ramp)' on BottomShell and BottomShell_Pouch; lib synced. Re-exported both.
+
+2026-11-24: print-test fixes
+  - Bumper: inner flange top trimmed to z 2.0 (`bm_fl_ztop`, cut 'Bumper flange relief', stops 0.2 mm short of the flange outer face so the stem root is untouched). The flange top (z 2.2 to 3.5) was hitting the PCB front edge (y 28.01, z 2.19 up) on a press.
+  - StickCap: rounded-square notch through the skirt over face button 2 (`cap_btn_clr` 0.2 mm around the button bore, 'Cap button notch', fb_proud + 1 mm tall from top_z). Cap vs all six FaceButtons: zero interference.
+  - StickCap: flat rim widened 10.4 to 12.4 mm (`bump_rim_r`) so the dome-down print sits on a ~2.8 mm wide flat ring instead of a ~0.2 mm line. The S-curve still has horizontal end tangents, so about 175 mm2 of the outer flare is steeper than 45 deg overhang (r 12 to 13.5 near the bed, r 15 to 16.5 near the base).
+  - BottomShell: hook slots for the panel tabs 0.6 mm taller (`bay_slot_up`) and 0.3 mm side/front clearance (`bay_slot_clr` 0.2 to 0.3).
+  - BatteryPanel: 'Panel rear lip' removed; new 'Panel rear tab' sits in the existing thumb pocket (`bay_thumb_hw`/`bay_thumb_len`, `bay_tab_clr` 0.2), now 1.4 mm thick (`bay_tab_t`, ~0.25 mm under the pocket floor) and buried 2 mm into the panel. Panel vs BottomShell: zero interference.
+  - BottomShell: 'Bay clip hook posts' and 'Bay clip hook lugs' (positive contact overhang) removed; `build_bay_clip_hooks` deleted from the lib.
+  - Re-exported TopShell, StickCap, BottomShell, BatteryPanel, Bumper (+ SnipsShell_v2.f3d). All STLs watertight. Unrelated print files restored after step_orient.
+
+2026-11-24 (evening): power button guide tube fin
+  - The 7.2 mm guide tube behind the power button started 0.3 mm in front of `pwr_floor_y`, and at the rear-left corner the outer wall curves away (`r_rear_out`), so the tube's outer corner poked through the skin as a small fin (x -15.6 to -14.62, z 1.95 to 9.15). New 'Power tube trim' cut (`build_power_tube_trim`) removes everything outside the corner arc there. TopShell re-exported, watertight.
+
+2026-11-24 (evening): battery panel rear tab shaped
+  - Tab end trimmed to the shell's rear belly arc (`edge_r`, 'Panel tab end trim') so it ends flush with the outer skin (tab now ends at y -49.53).
+  - Fingernail notch: a 0.6 mm deep rebate across the top face of the tab end, facing the shell ('Panel tab nail notch': `bay_nail_w` 5, `bay_nail_h` 0.6, `bay_nail_len` 1.2). BatteryPanel re-exported, watertight; zero interference with BottomShell.
+
+2026-11-24 (evening): battery panel underside flat to the rear
+  - 'Panel envelope' no longer has the edge_r fillet on its rear bottom edge: the underside is flat (z -bot_d) all the way to the tab, flush with the shell belly. The curve now exists only on the tab end ('Panel tab end trim'). BatteryPanel re-exported, watertight; zero interference with BottomShell.
+
+2026-11-24 (evening): OLED mount re-dimensioned to the measured module
+  - OLED PCB is 24.85 x 27 mm (was 27.5 x 27.8 from the listing); mounting holes are 2.8 mm, 21 mm (x) by 23 mm (y) centre to centre (new `oled_hole_dx`, `oled_hole_dy`, derived insets `oled_hole_inset_x`, `oled_hole_inset`). Locating pegs 2.6 mm (0.2 mm clearance in the hole). The pegs now sit at x +-10.5, y -20.5 / -43.5, exactly on the OLED_Ref holes.
+  - Screen window unchanged. Rear tape pad shortened so it stops 0.1 mm short of the glass (`oled_pcb_l - oled_panel_top - oled_panel_h - 0.1 mm`): the shorter PCB moved it into the glass edge.
+  - Shell outline unchanged: `oled_clr` (rear clearance) raised 1.75 to 2.55 mm so `y_rear_out` stays -50.25 and nothing at the back moves.
+  - Changing the parameters broke the 'Trigger rim fillet (roll-over)' edge reference in the (hidden) BottomShell_Pouch; re-picked the seed edge, timeline healthy again. BottomShell_Pouch was not re-exported. OLED_Ref vs TopShell: zero interference. TopShell re-exported, watertight.
+  - OLED_Ref glass width corrected to 24.85 mm (same as the PCB; `oled_panel_w` was 26.7 from the listing). Reference only: no exported part changed.
+  - OLED glass corrected again from measurements: 24.85 wide x 16.6 long, top edge 5.4 mm below the PCB top (`oled_panel_h`, `oled_panel_top`). The tape pads follow it: front pad now 5.3 mm long, rear pad 4.9 mm long (each stops 0.1 mm short of the glass). OLED_Ref vs TopShell: zero interference. TopShell re-exported, watertight. The view-area rectangle (`oled_va_top` 5.37) now starts 0.03 mm above the glass edge; reference only.
+  - OLED_Ref view area moved to 5.5 mm below the PCB top (`oled_va_top`), 0.1 mm inside the glass edge. Reference only.
+
+2026-11-24 (evening): trigger post has ONE flat
+  - The post had its D flat on +z (keys it to the trigger bore) plus the full-length print flat on the rear (-y) side. Now the rear flat is the only flat: the post is one D-with-rear-flat extrusion (`_rear_d_profile`, depth `trig_post_flat` 0.55 mm, same for `pt_post_flat`) with the neck ring cut. The separate 'Post end piece' and 'Post print flat' features and `trig_post_side` are gone.
+  - Trigger and Trigger_Pouch D bores re-cut with the flat on the rear (-y) side (0.15 mm clearance as before), so the post still keys to the trigger. TriggerPost and TriggerPost_Pouch rebuilt (identical).
+  - Checks (post vs BottomShell): free from 0 to -0.65 mm slide and at +0.15 mm; drop path from above clear; lifting the locked post (-0.5 mm) collides with the lips from 0.3 mm, as before.
+  - Removed an orphaned 'Post neck' ring-cut feature in the BottomShell timeline (its sketch belonged to the old post); it had also been grooving the BottomShell lips (about 2.3 mm3), which is no longer needed. Exports: TriggerPost, Trigger, Trigger_Pouch, BottomShell (all watertight).
+
+2026-11-24 (night): rear contact slot (BottomShell); the old rear-clip cut is now permanent
+  - Jess cut away the rear contact clip block by hand (Extrude100, an un-named cut): that clip was the wrong retention idea. Its model state was never in the lib, so nothing to remove there; the rebuilt BottomShell has no such block.
+  - New `build_bay_rear_slot` ('Bay rear contact slot'): squares off the 4 mm roll-over at the rear inner corner into a slot for the positive contact: flat floor at `bay_clip_floor_z` (-14.5 mm), back wall on the rear inner wall plane, sides = the rear cheeks, open to the top (the contact slides in from above) and to the cell. The belly skin under it stays closed (1.4 mm). Inserted before the retention ribs so they run the full slot height.
+  - Contact size: `bay_clip_w` 11.25 mm (was 11.2), new `bay_clip_h` 12 mm and `bay_clip_floor_z` (plate centred on the cell axis, 0.1 mm clearance under it). Tab on top (3 x 6.5 mm) is not modelled.
+  - Timeline healthy. BottomShell exported (STEP, STL, f3d, print), watertight. BottomShell_Pouch untouched. Side rails still to come.
+
+2026-11-24 (night): retaining rails for the rear contact slot
+  - New `build_bay_rear_rails` ('Bay rear contact rails'): a rail on each side wall of the slot, just in front of the plate front face, overlapping each plate edge by `bay_rail_in` (0.5 mm). Together with the back wall, floor and cheeks the slot is a closed socket; the plate drops in from above and cannot come out forwards (forward-push test: collides from 0.05 mm).
+  - Rail thickness is what fits between the plate front (0.05 mm gap, `bay_rail_gap`) and the cell rear end (0.05 mm, `bay_rail_cell_clr`): 0.4 mm, since the cell rear is only 0.5 mm in front of the plate (`bay_cell_y0`). An anchor block behind each lip is buried in the cheek.
+  - Rails start at `bay_rail_z0` (-12.5 mm, just above the belly panel top at -12.8) and run to the plate top (-2.5 mm). Below that the belly panel opening takes the space, so the lowest ~2 mm of the plate is not covered.
+  - Checks: timeline healthy; zero interference with the cell and the battery panel; drop-in from above is clear (only the 0.05 mm crush ribs touch the plate, as designed). BottomShell re-exported, watertight.
+
+2026-11-24 (night): trigger post lock lips made printable (BottomShell and BottomShell_Pouch)
+  - Print test: the two lips over the right post socket (0.6 mm wide, 0.65 mm tall step, flat overhang underside, about 0.3 mm of catch on the collar) did not print on a 0.4 mm nozzle (ragged, supports clogged the bore); the post then fell out.
+  - Lips are now wedges (`build_post_lips`): 1.2 mm wide (`lk_lip_w`, was 0.6), vertical tip face (same 0.3 mm catch on the collar), underside sloping 45 deg down into the wall so no support is needed. Shared by the pouch variant (same function, prefix pt).
+  - Slide raised 0.5 -> 1.0 mm (`lk_slide`) for easier assembly; post neck widened to 1.5 mm (`lk_neck_w`, lip + 0.15 mm each side); right socket end `sock_r` 11.05 -> 11.8 mm so the end piece still sits 0.85 mm under the lip when locked. The post is 1.7 mm longer at the right end (x -10.20..11.65).
+  - Checks (post vs shell, both variants): free drop from above at the drop position; slides to -1.0 mm without contact and stops against the pocket end beyond that; locked, any lift collides from 0.2 mm (retained); neck misaligned (dx -0.3) cannot be lifted out. Timeline healthy in both shells (the pouch rim fillet kept its edge this time).
+  - Exports: BottomShell, BottomShell_Pouch, TriggerPost, TriggerPost_Pouch (STEP, STL, print files for the first three; TriggerPost_Pouch has no separate print file); all watertight. README: post and lock notes updated.
+
+2026-11-24 (night): cell note and polarity marks moved to the battery panel
+  - Print test: the engraved text on the BottomShell ledges came out ragged. Those faces point down onto supports in the belly-down print.
+  - BottomShell: the cell note ("LI-ION" / "14500") is removed; the + and - marks stay on the ledges (`build_bay_polarity`, unchanged otherwise).
+  - BatteryPanel: new `build_bay_panel_marks` engraves + (rear end), - (front end) and the note (LI-ION right strip, 14500 left strip) into the inner (cell side) face, on the flat strip between the cell scoop edge and the snap arm slit. The panel prints outer face down, so this is an up-facing surface and prints clean. New parameters `pp_h` 2.2 mm text height, `pp_depth` 0.5 mm, `pp_x` (strip centre, derived), `pp_y_lo`, `pp_y_hi`, `pp_edge`. Text reads rear to front, glyph tops toward -x.
+  - Exports: BottomShell, BatteryPanel (STEP, STL, print files), both watertight. README updated.
