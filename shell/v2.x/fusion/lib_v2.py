@@ -246,8 +246,11 @@ def circle_at(sk, des, cx, cy, dia):
 
 
 OLED_PARAMS = [
-    ('oled_hole_d', '2 mm', 'OLED mounting hole diameter (drawing: R1.00)'),
-    ('oled_hole_inset', '2 mm', 'OLED mounting hole centre inset from each PCB edge'),
+    ('oled_hole_d', '2.8 mm', 'OLED mounting hole diameter (measured on the purchased module)'),
+    ('oled_hole_dx', '21 mm', 'OLED mounting holes, centre to centre in x (measured)'),
+    ('oled_hole_dy', '23 mm', 'OLED mounting holes, centre to centre in y (measured)'),
+    ('oled_hole_inset_x', '(oled_pcb_w - oled_hole_dx) / 2', 'OLED mounting hole centre inset from the PCB side edges'),
+    ('oled_hole_inset', '(oled_pcb_l - oled_hole_dy) / 2', 'OLED mounting hole centre inset from the PCB top/bottom edges'),
     ('oled_notch_w', '14 mm', 'OLED PCB bottom-edge notch width (ESTIMATED from drawing)'),
     ('oled_notch_d', '2 mm', 'OLED PCB bottom-edge notch depth (ESTIMATED from drawing)'),
     ('oled_panel_w', '26.7 mm', 'OLED panel (glass) width'),
@@ -265,7 +268,7 @@ OLED_PARAMS = [
 
 
 def build_oled_ref(root, des):
-    """Reference model of the purchased 27.5 x 27.8 mm 0.96in I2C OLED, flat, header edge toward the front."""
+    """Reference model of the purchased 24.85 x 27 mm 0.96in I2C OLED, flat, header edge toward the front."""
     up = des.userParameters
     for n, e, c in OLED_PARAMS:
         if up.itemByName(n) is None:
@@ -286,7 +289,7 @@ def build_oled_ref(root, des):
         return sk.sketchCurves.sketchCircles.addByCenterRadius(P3(ev_cm(des, x), ev_cm(des, y), 0), ev_cm(des, d) / 2)
     def dist(p1, p2, orient, expr, tp):
         dm.addDistanceDimension(p1, p2, orient, tp).parameter.expression = expr
-    xi = 'oled_pcb_w / 2 - oled_hole_inset'
+    xi = 'oled_hole_dx / 2'
     c1 = circle_at(sk, des, xi, 'oled_front_y - oled_hole_inset', 'oled_hole_d')
     c2 = circ(xi, 'oled_front_y - oled_pcb_l + oled_hole_inset', 'oled_hole_d')
     gc.addVerticalPoints(c1.centerSketchPoint, c2.centerSketchPoint); gc.addEqual(c1, c2)
@@ -359,7 +362,7 @@ def build_oled_window(top_comp, des):
 MOUNT_PARAMS = [
     ('oled_pad_sz', '4 mm', 'OLED tape pad: width (x) of each corner pad'),
     ('oled_tape_t', '0.15 mm', 'OLED double-sided tape thickness between pad and PCB'),
-    ('oled_peg_d', '1.8 mm', 'OLED locating peg diameter (module hole is 2.0)'),
+    ('oled_peg_d', '2.6 mm', 'OLED locating peg diameter (module hole is 2.8, 0.2 mm clearance)'),
     ('oled_peg_len', '0.5 mm', 'OLED locating peg length below the pad underside (short: the module is slid in over the posts, then lifted onto the pegs)'),
 ]
 
@@ -379,12 +382,12 @@ def build_oled_mount(top_comp, des):
     rect4(sk, des, xl, xr, 'oled_front_y - oled_panel_top + 0.1 mm', 'oled_front_y')
     feats.append(ext(top_comp, main_profile(sk), h_up, FE.JoinFeatureOperation, 'OLED pad front', start=z_pad))
     sk = top_comp.sketches.add(top_comp.xYConstructionPlane); sk.name = 'OLED pad rear'
-    rect4(sk, des, xl, xr, 'oled_front_y - oled_pcb_l', 'oled_front_y - oled_pcb_l + oled_panel_top - 0.1 mm')
+    rect4(sk, des, xl, xr, 'oled_front_y - oled_pcb_l', 'oled_front_y - oled_panel_top - oled_panel_h - 0.1 mm')   # stops 0.1 mm short of the glass
     feats.append(ext(top_comp, main_profile(sk), h_up, FE.JoinFeatureOperation, 'OLED pad rear', start=z_pad))
     sk = top_comp.sketches.add(top_comp.xYConstructionPlane); sk.name = 'OLED pegs'
     gc = sk.geometricConstraints; dm = sk.sketchDimensions
-    c1 = circle_at(sk, des, '-(oled_pcb_w / 2 - oled_hole_inset)', 'oled_front_y - oled_hole_inset', 'oled_peg_d')
-    c2 = sk.sketchCurves.sketchCircles.addByCenterRadius(P3(ev_cm(des, '-(oled_pcb_w / 2 - oled_hole_inset)'), ev_cm(des, 'oled_front_y - oled_pcb_l + oled_hole_inset'), 0), ev_cm(des, 'oled_peg_d') / 2)
+    c1 = circle_at(sk, des, '-(oled_hole_dx / 2)', 'oled_front_y - oled_hole_inset', 'oled_peg_d')
+    c2 = sk.sketchCurves.sketchCircles.addByCenterRadius(P3(ev_cm(des, '-(oled_hole_dx / 2)'), ev_cm(des, 'oled_front_y - oled_pcb_l + oled_hole_inset'), 0), ev_cm(des, 'oled_peg_d') / 2)
     gc.addVerticalPoints(c1.centerSketchPoint, c2.centerSketchPoint); gc.addEqual(c1, c2)
     dm.addDistanceDimension(c1.centerSketchPoint, c2.centerSketchPoint, adsk.fusion.DimensionOrientations.VerticalDimensionOrientation, P3(-1, -3, 0)).parameter.expression = 'oled_pcb_l - 2 * oled_hole_inset'
     profs = adsk.core.ObjectCollection.create()
