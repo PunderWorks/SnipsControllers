@@ -10,7 +10,7 @@ FILE_DESCRIPTION(
 
 FILE_NAME(
 /* name */ 'TopShell.step',
-/* time_stamp */ '2026-11-23T16:31:13-08:00',
+/* time_stamp */ '2026-11-24T18:11:30-08:00',
 /* author */ (''),
 /* organization */ (''),
 /* preprocessor_version */ 'ST-DEVELOPER v20.2',
@@ -7867,12 +7867,12 @@ POSITIVE_RATIO_MEASURE(7850.),#6085);
 #7651=DIRECTION('ref_axis',(1.,0.,0.));
 #7652=DIRECTION('',(0.,-1.,0.));
 #7653=DIRECTION('center_axis',(0.,0.,1.));
-#7654=DIRECTION('ref_axis',(1.,8.59969467188482E-17,0.));
+#7654=DIRECTION('ref_axis',(1.,7.88903779447841E-17,0.));
 #7655=DIRECTION('',(0.,-1.,0.));
 #7656=DIRECTION('',(1.,0.,0.));
 #7657=DIRECTION('',(0.,1.,0.));
 #7658=DIRECTION('center_axis',(0.,0.,1.));
-#7659=DIRECTION('ref_axis',(1.,8.59969467188482E-17,0.));
+#7659=DIRECTION('ref_axis',(1.,7.88903779447841E-17,0.));
 #7660=DIRECTION('',(1.,0.,0.));
 #7661=DIRECTION('',(0.,-1.,0.));
 #7662=DIRECTION('',(-1.,0.,0.));
@@ -8572,7 +8572,7 @@ POSITIVE_RATIO_MEASURE(7850.),#6085);
 #8356=DIRECTION('center_axis',(0.,1.,0.));
 #8357=DIRECTION('ref_axis',(0.707106781186548,0.,0.707106781186548));
 #8358=DIRECTION('center_axis',(0.,0.,1.));
-#8359=DIRECTION('ref_axis',(1.,8.59969467188482E-17,0.));
+#8359=DIRECTION('ref_axis',(1.,7.88903779447841E-17,0.));
 #8360=DIRECTION('center_axis',(0.,0.,1.));
 #8361=DIRECTION('ref_axis',(1.,0.,0.));
 #8362=DIRECTION('center_axis',(0.,0.,1.));
@@ -8597,7 +8597,7 @@ POSITIVE_RATIO_MEASURE(7850.),#6085);
 #8381=DIRECTION('ref_axis',(1.,0.,0.));
 #8382=DIRECTION('',(0.,0.,-1.));
 #8383=DIRECTION('center_axis',(0.,0.,1.));
-#8384=DIRECTION('ref_axis',(-1.,3.64677331958871E-17,0.));
+#8384=DIRECTION('ref_axis',(-1.,4.35743019699512E-17,0.));
 #8385=CARTESIAN_POINT('',(0.,0.,0.));
 #8386=CARTESIAN_POINT('Origin',(-12.,-38.55,8.15));
 #8387=CARTESIAN_POINT('',(-10.6,-37.3,8.15));

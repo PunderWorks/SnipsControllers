@@ -94,3 +94,12 @@ Print files regenerated for the new/changed parts only (unchanged print STEPs we
 
 2026-11-23 (night): front screw bores re-cut through the trigger ramp floor
   - The ramp floor (added after the screw bores were cut) refilled the front two bores with a thin skin that left each hole D-shaped where it meets the head well. New 'Screw bores (ramp)' cut (screw_clr_d, same extent as 'Screw bores') after 'Screw head wells (ramp)' on BottomShell and BottomShell_Pouch; lib synced. Re-exported both.
+
+2026-11-24: print-test fixes
+  - Bumper: inner flange top trimmed to z 2.0 (`bm_fl_ztop`, cut 'Bumper flange relief', stops 0.2 mm short of the flange outer face so the stem root is untouched). The flange top (z 2.2 to 3.5) was hitting the PCB front edge (y 28.01, z 2.19 up) on a press.
+  - StickCap: rounded-square notch through the skirt over face button 2 (`cap_btn_clr` 0.2 mm around the button bore, 'Cap button notch', fb_proud + 1 mm tall from top_z). Cap vs all six FaceButtons: zero interference.
+  - StickCap: flat rim widened 10.4 to 12.4 mm (`bump_rim_r`) so the dome-down print sits on a ~2.8 mm wide flat ring instead of a ~0.2 mm line. The S-curve still has horizontal end tangents, so about 175 mm2 of the outer flare is steeper than 45 deg overhang (r 12 to 13.5 near the bed, r 15 to 16.5 near the base).
+  - BottomShell: hook slots for the panel tabs 0.6 mm taller (`bay_slot_up`) and 0.3 mm side/front clearance (`bay_slot_clr` 0.2 to 0.3).
+  - BatteryPanel: 'Panel rear lip' removed; new 'Panel rear tab' sits flush in the existing thumb pocket (`bay_thumb_hw`/`bay_thumb_len`, `bay_tab_clr` 0.2, `bay_tab_t` 0.4 of the 0.6 pocket depth). Panel vs BottomShell: zero interference.
+  - BottomShell: 'Bay clip hook posts' and 'Bay clip hook lugs' (positive contact overhang) removed; `build_bay_clip_hooks` deleted from the lib.
+  - Re-exported TopShell, StickCap, BottomShell, BatteryPanel, Bumper (+ SnipsShell_v2.f3d). All STLs watertight. Unrelated print files restored after step_orient.

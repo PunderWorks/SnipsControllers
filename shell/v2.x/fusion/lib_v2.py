@@ -1039,7 +1039,22 @@ def build_stick_cap(root, des, top_comp):
         ci = comp.features.chamferFeatures.createInput2()
         ci.chamferEdgeSets.addEqualDistanceChamferEdgeSet(col, VI('peg_lead'), False)
         comp.features.chamferFeatures.add(ci).name = nm
+    build_cap_button_notch(cc, des)
     return cc
+
+
+def build_cap_button_notch(cc, des):
+    """Rounded-square notch through the cap skirt where face button 2 (front-centre macro button) pokes up into it."""
+    add_fb_params(des)
+    up = des.userParameters
+    if up.itemByName('cap_btn_clr') is None:
+        up.add('cap_btn_clr', VI('0.2 mm'), 'mm', 'Extra clearance per side around a face button where it passes through the stick cap skirt')
+    H = adsk.fusion.DimensionOrientations
+    sk = cc.sketches.add(cc.xYConstructionPlane); sk.name = 'Cap button notch'
+    _, pt = _fb_rsq(sk, des, 0, ev_cm(des, 'mac_cy1'), 'fb_sq + 2 * fb_sq_clr + 2 * cap_btn_clr', 'fb_sq_r + fb_sq_clr + cap_btn_clr')
+    sk.geometricConstraints.addVerticalPoints(sk.originPoint, pt)
+    sk.sketchDimensions.addDistanceDimension(sk.originPoint, pt, H.VerticalDimensionOrientation, P3(1.5, ev_cm(des, 'mac_cy1') / 2, 0)).parameter.expression = '-(mac_cy1)'
+    ext(cc, main_profile(sk), 'fb_proud + 1 mm', FE.CutFeatureOperation, 'Cap button notch', start='top_z', target=cc.bRepBodies.item(0))
 
 
 # ------------------------------------------------------------------ face (macro) buttons
@@ -1375,6 +1390,7 @@ BUMP2_PARAMS = [
     ('bm_cap_fillet', '0.4 mm', 'Cap face edge fillet'),
     ('bm_wall_in_y', 'y_front_out - wall', 'Front wall inner face y'),
     ('bm_wall_out_y', 'y_front_out', 'Front wall outer face y'),
+    ('bm_fl_ztop', '2 mm', 'Flange top is trimmed to this z (above it the PCB front edge, z 2.19 up, would stop the press)'),
     ('bm_fl_in_y', 'bm_act_y + bm_gap', 'Flange inner face y'),
     ('bm_fl_out_y', 'bm_fl_in_y + bm_fl_t', 'Flange outer face y'),
     ('bm_pk_floor_y', 'bm_fl_out_y + bm_pk_axial', 'Pocket floor y'),
@@ -1431,6 +1447,16 @@ def _face_y(body, y_cm, ny):
     raise RuntimeError('face not found at y=%s' % y_cm)
 
 
+def build_bumper_relief(comp, des, body):
+    """Trim the top of the inner flange to bm_fl_ztop so it clears the PCB's front edge as the bumper is pressed in.
+    Stops 0.2 mm short of the flange's outer face so the stem root is untouched."""
+    add_bm_params(des)
+    sk = comp.sketches.add(comp.xZConstructionPlane); sk.name = 'Bumper flange relief'
+    rect4(sk, des, 'bm_x - (bm_fl_w + 2 mm) / 2', 'bm_x + (bm_fl_w + 2 mm) / 2', '-(bm_z + bm_fl_ztop + 3 mm)', '-(bm_z + bm_fl_ztop)')
+    ext(comp, main_profile(sk), 'bm_fl_t - 0.1 mm', FE.CutFeatureOperation, 'Bumper flange relief',
+        start='bm_fl_in_y - 0.1 mm', target=body)
+
+
 def build_bumper(root, des):
     """Printed bumper: inner flange, stem through the slot, wide cap outside the front wall, straddling the seam."""
     add_bm_params(des)
@@ -1439,6 +1465,7 @@ def build_bumper(root, des):
     rrect(sk, des, 'bm_fl_w', 'bm_fl_h', 'bm_fl_r')
     f = ext(comp, main_profile(sk), 'bm_fl_t', FE.NewBodyFeatureOperation, 'Bumper flange', start='bm_fl_in_y')
     body = f.bodies.item(0); body.name = 'Bumper'
+    build_bumper_relief(comp, des, body)
     sk = comp.sketches.add(comp.xZConstructionPlane); sk.name = 'Bumper stem'
     rrect(sk, des, 'bm_stem_w', 'bm_stem_h', 'bm_stem_r')
     ext(comp, main_profile(sk), 'bm_cap_in_y + 0.2 mm - (bm_fl_out_y - 0.2 mm)', FE.JoinFeatureOperation, 'Bumper stem',
@@ -1482,12 +1509,15 @@ BAY_PARAMS = [
     ('bay_hook_len', '2.5 mm', 'hook tab length past the panel front'),
     ('bay_hook_z0', '-15.2 mm', 'hook tab bottom'),
     ('bay_hook_z1', '-13.8 mm', 'hook tab top'),
-    ('bay_slot_clr', '0.2 mm', 'hook slot clearance'),
+    ('bay_slot_clr', '0.3 mm', 'hook slot clearance (sides and front)'),
     ('bay_bulk_t', 'bay_front_y + 1.55 mm - (bay_pan_y1 + bay_pan_clr)', 'hook pad depth: from the opening front edge to the back of the front holder'),
     ('bay_bulk_x0', 'bay_blk_w / 2 + bay_hold_clr + bay_hold_w', 'hook pads start at the front contact holder cheek outer face'),
     ('bay_bulk_top_z', '-12.0 mm', 'front hook bulkhead top'),
-    ('bay_lip_len', '1.4 mm', 'rear lip: tongue past the panel rear edge, tucked under the curved rear belly so the panel cannot drop into the bay'),
-    ('bay_lip_t', '0.4 mm', 'rear lip thickness (up from the belly plane)'),
+    ('bay_thumb_hw', '4.5 mm', 'thumb pocket half width (x) in the belly behind the panel'),
+    ('bay_thumb_len', '3.5 mm', 'thumb pocket length (y) behind the panel rear edge'),
+    ('bay_tab_clr', '0.2 mm', 'clearance per side of the panel rear tab in the thumb pocket'),
+    ('bay_tab_t', '0.4 mm', 'panel rear tab thickness (up from the belly plane; pocket is 0.6 deep)'),
+    ('bay_slot_up', '0.6 mm', 'extra height of the hook slots above the hook tab top (on top of bay_slot_clr)'),
 ]
 
 
@@ -1590,7 +1620,7 @@ def build_bay_shell(bot_comp, des, body):
     ext(c, main_profile(sk), 'bay_pan_t + 1 mm + 0.3 mm', FE.CutFeatureOperation, 'Bay wide opening', start='-bot_d - 1 mm', target=body)
     # thumb pocket in the belly behind the panel
     sk = _xy_rects(c, des, 'Bay thumb pocket', [
-        ('-4.5 mm', '4.5 mm', 'bay_pan_y0 - bay_pan_clr - 3.5 mm', 'bay_pan_y0 - bay_pan_clr')])
+        ('-(bay_thumb_hw)', 'bay_thumb_hw', 'bay_pan_y0 - bay_pan_clr - bay_thumb_len', 'bay_pan_y0 - bay_pan_clr')])
     ext(c, main_profile(sk), '0.6 mm', FE.CutFeatureOperation, 'Bay thumb pocket', start='-bot_d', target=body)
 
 
@@ -1600,7 +1630,7 @@ def build_bay_hook_slots(c, des, body):
     sk = _xy_rects(c, des, 'Bay hook slots', [
         ('-(bay_hook_x1 + bay_slot_clr)', '-(bay_hook_x0 - bay_slot_clr)', 'bay_pan_y1 + bay_pan_clr - 0.2 mm', 'bay_pan_y1 + bay_hook_len + bay_slot_clr + 0.3 mm'),
         ('bay_hook_x0 - bay_slot_clr', 'bay_hook_x1 + bay_slot_clr', 'bay_pan_y1 + bay_pan_clr - 0.2 mm', 'bay_pan_y1 + bay_hook_len + bay_slot_clr + 0.3 mm')])
-    ext(c, all_profiles(sk), 'bay_hook_z1 + bay_slot_clr - bay_floor_z', FE.CutFeatureOperation, 'Bay hook slots', start='bay_floor_z', target=body)
+    ext(c, all_profiles(sk), 'bay_hook_z1 + bay_slot_clr + bay_slot_up - bay_floor_z', FE.CutFeatureOperation, 'Bay hook slots', start='bay_floor_z', target=body)
 
 
 BAY_PANEL_PARAMS = [
@@ -1710,12 +1740,13 @@ def build_bay_panel(root, des):
 
 
 def build_bay_panel_lip(comp, des):
-    """Rear lip on the battery panel: a thin tongue past the rear edge, tail width, tucked under the curved rear belly.
-    Stops the panel dropping into the bay (the front hooks only hold the other end)."""
+    """Rear tab on the battery panel: a flat tongue past the rear edge that sits flush in the thumb pocket behind the panel.
+    It keeps the panel from dropping into the bay (the front hooks only hold the other end) and adds nothing proud of the belly."""
     add_bay_params(des)
     body = comp.bRepBodies.item(0)
-    sk = _xy_rects(comp, des, 'Panel rear lip', [('-(bay_pan_nw / 2)', 'bay_pan_nw / 2', 'bay_pan_y0 - bay_lip_len', 'bay_pan_y0 + 0.5 mm')])
-    ext(comp, main_profile(sk), 'bay_lip_t', FE.JoinFeatureOperation, 'Panel rear lip', start='-bot_d', target=body)
+    sk = _xy_rects(comp, des, 'Panel rear tab', [('-(bay_thumb_hw - bay_tab_clr)', 'bay_thumb_hw - bay_tab_clr',
+                                                  'bay_pan_y0 - bay_pan_clr - bay_thumb_len + bay_tab_clr', 'bay_pan_y0 + 0.5 mm')])
+    ext(comp, main_profile(sk), 'bay_tab_t', FE.JoinFeatureOperation, 'Panel rear tab', start='-bot_d', target=body)
 
 
 def build_bay_grooves(bot_comp, des, body):
@@ -3370,15 +3401,10 @@ def build_bay_retention(c, des, body):
 # ---------------------------------------------------------------- battery contact fixes (print test 2) ----
 # 1. Wire hole through the front holder backing, centred on the spring contact's pin (x 0, cell axis): the wire is soldered to the
 #    pin end and goes out to the JST through this hole.
-# 2. Snap hooks on the rear (positive) clip pocket: the clip drops in between the cheeks, the plate shoulders push the hook lugs
-#    apart (ramped top), and the lugs then sit 0.1 mm over the plate's top edge so it cannot lift out.
+# (A snap-hook overhang over the rear clip was tried and removed: it printed badly and did not hold the contact.)
 BAY_FIX_PARAMS = [
     ('bay_wire_hole_d', '3.5 mm', 'wire hole through the front holder backing (centred on the spring pin; pin is 3.8 mm)'),
     ('bay_wire_hole_len', '2.1 mm', 'wire hole cut length from the plate pocket front face (backing is 1.45 mm)'),
-    ('bay_hook_ov', '0.4 mm', 'rear clip snap hook overlap onto the plate shoulder'),
-    ('bay_hook_gap', '0.1 mm', 'gap between the plate top edge and the hook underside'),
-    ('bay_hook_h', '0.9 mm', 'hook height at the cheek (the ramped top leaves h - overlap at the tip)'),
-    ('bay_hook_y1', 'bay_clip_y + 0.65 mm', 'hook front end (y): covers the 0.5 mm plate sheet plus 0.15 mm'),
 ]
 
 
@@ -3401,19 +3427,3 @@ def build_bay_wire_hole(c, des, body):
     dm.addDistanceDimension(sk.originPoint, circ.centerSketchPoint, adsk.fusion.DimensionOrientations.VerticalDimensionOrientation, P3(1.5, cy / 2, 0)).parameter.expression = '-(bay_axis_z)'
     dm.addDiameterDimension(circ, P3(0.5, cy + 0.5, 0)).parameter.expression = 'bay_wire_hole_d'
     ext(c, all_profiles(sk), 'bay_wire_hole_len', FE.CutFeatureOperation, 'Bay wire hole', start='bay_front_y', target=body)
-
-
-def build_bay_clip_hooks(c, des, body):
-    add_bay_fix_params(des)
-    xr = 'bay_clip_w / 2 + bay_hold_clr'
-    y0 = 'bay_clip_y - bay_hold_clr'
-    sk = _xy_rects(c, des, 'Bay clip hook posts', [('-(%s + bay_hold_w)' % xr, '-(%s)' % xr, y0, 'bay_hook_y1'),
-                                                 ('%s' % xr, '%s + bay_hold_w' % xr, y0, 'bay_hook_y1')])
-    ext(c, all_profiles(sk), 'bay_hook_gap + bay_hook_h', FE.JoinFeatureOperation, 'Bay clip hook posts', start='bay_hold_top_z', target=body)
-    zl = 'bay_hold_top_z + bay_hook_gap'; zh = '(bay_hold_top_z + bay_hook_gap + bay_hook_h)'
-    sk = c.sketches.add(c.xZConstructionPlane); sk.name = 'Bay clip hook lugs'
-    for s_ in (1, -1):
-        X = (lambda e: '(%s)' % e) if s_ > 0 else (lambda e: '-(%s)' % e)
-        poly_pts(sk, des, [(X('%s + 0.1 mm' % xr), '-(%s)' % zl), (X('%s - bay_hook_ov' % xr), '-(%s)' % zl),
-                           (X('%s - bay_hook_ov' % xr), '-(%s - bay_hook_ov)' % zh), (X('%s + 0.1 mm' % xr), '-(%s)' % zh)])
-    ext(c, all_profiles(sk), 'bay_hook_y1 - (%s)' % y0, FE.JoinFeatureOperation, 'Bay clip hook lugs', start=y0, target=body)
