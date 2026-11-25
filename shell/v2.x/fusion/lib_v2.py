@@ -2076,7 +2076,7 @@ TRIG2_PARAMS = [
     ('trig_nose_y', 'trig_ramp_y - 0.4 mm', 'trigger front trim: 0.4 mm behind the front wall inner face'),
     ('trig_tip_z', '-bot_d + 0.3 mm', 'trigger tip trim: 0.3 mm above the belly'),
     ('trig_post_d', '2.9 mm', 'pivot post diameter (D shape, as v1.1)'),
-    ('trig_post_flat', '0.55 mm', 'pivot post flat depth, on the +z side'),
+    ('trig_post_flat', '0.55 mm', 'pivot post flat depth, on the rear (-y) side (the post has this one flat only)'),
     ('trig_bore_clr', '0.15 mm', 'hub bore clearance per side around the post'),
     ('trig_sock_l', '-10.35 mm', 'left post socket end (x) in the drop position; the closed pocket behind it takes the post when it slides left'),
     ('trig_sock_r', '11.05 mm', 'right post socket end (x): room for the post to be dropped in 0.5 mm (trig_lk_slide) right of its locked position'),
@@ -2127,21 +2127,27 @@ def _clip(pts, keep):
     return out
 
 
-def _d_profile(c, des, name, dia_e, flat_e):
-    """YZ sketch: circle of diameter dia_e about the pivot with a flat chord on the +z side, flat_e from the centre.
-    Returns (sketch, D profile)."""
+def _rear_d_profile(c, des, name, dia_e, flat_e, p):
+    """YZ sketch: circle of diameter dia_e about the pivot with ONE flat chord on the rear (-y) side, flat_e from the centre.
+    The flat is the post's only flat: it keys the post to the trigger bore and is the face the post prints on.
+    Returns (sketch, D profile). p = 'trig' or 'pt' (parameter prefix)."""
     sk = c.sketches.add(c.yZConstructionPlane); sk.name = name
-    circ = circle_at(sk, des, '-(trig_piv_z)', 'trig_piv_y', dia_e)
-    cx = circ.centerSketchPoint.geometry.x
+    circ = circle_at(sk, des, '-(%s_piv_z)' % p, '%s_piv_y' % p, dia_e)       # sketch (x_s, y_s) = (-z, y)
+    cy = circ.centerSketchPoint.geometry.y
     L = sk.sketchCurves.sketchLines; dm = sk.sketchDimensions; O = sk.originPoint
-    xc = cx - ev_cm(des, flat_e)
-    ln = L.addByTwoPoints(P3(xc, ev_cm(des, 'trig_piv_y - 3 mm'), 0), P3(xc, ev_cm(des, 'trig_piv_y + 3 mm'), 0))
-    sk.geometricConstraints.addVertical(ln)
+    yc = cy - ev_cm(des, flat_e)
+    x0, x1 = ev_cm(des, '-(%s_piv_z) - 2.5 mm' % p), ev_cm(des, '-(%s_piv_z) + 2.5 mm' % p)
+    ln = L.addByTwoPoints(P3(x0, yc, 0), P3(x1, yc, 0))
+    sk.geometricConstraints.addHorizontal(ln)
     HO = adsk.fusion.DimensionOrientations
-    dm.addDistanceDimension(circ.centerSketchPoint, ln.startSketchPoint, HO.HorizontalDimensionOrientation, P3(xc, ev_cm(des, 'trig_piv_y') - 0.5, 0)).parameter.expression = flat_e
-    dm.addDistanceDimension(O, ln.startSketchPoint, HO.VerticalDimensionOrientation, P3(xc + 1, ev_cm(des, 'trig_piv_y - 3 mm') / 2, 0)).parameter.expression = 'trig_piv_y - 3 mm'
-    dm.addDistanceDimension(O, ln.endSketchPoint, HO.VerticalDimensionOrientation, P3(xc + 1, ev_cm(des, 'trig_piv_y + 3 mm') / 2, 0)).parameter.expression = 'trig_piv_y + 3 mm'
-    return sk, max(sk.profiles, key=lambda p: p.areaProperties().area)
+    dm.addDistanceDimension(circ.centerSketchPoint, ln.startSketchPoint, HO.VerticalDimensionOrientation, P3(x0 - 0.5, (cy + yc) / 2, 0)).parameter.expression = flat_e
+    dm.addDistanceDimension(O, ln.startSketchPoint, HO.HorizontalDimensionOrientation, P3((x0) / 2, yc - 0.5, 0)).parameter.expression = '-(%s_piv_z) - 2.5 mm' % p
+    dm.addDistanceDimension(O, ln.endSketchPoint, HO.HorizontalDimensionOrientation, P3((x1) / 2, yc - 1.0, 0)).parameter.expression = '-(%s_piv_z) + 2.5 mm' % p
+    return sk, max(sk.profiles, key=lambda pr: pr.areaProperties().area)
+
+
+def _d_profile(c, des, name, dia_e, flat_e):
+    return _rear_d_profile(c, des, name, dia_e, flat_e, 'trig')
 
 
 def build_trigger(root, des):
@@ -2188,7 +2194,7 @@ def build_trigger(root, des):
 def build_trigger_post(root, des):
     add_trig2_params(des)
     c = new_component(root, 'TriggerPost')
-    sk, prof = _d_profile(c, des, 'Trigger post D', 'trig_post_d', 'trig_post_d / 2 - trig_post_flat')
+    sk, prof = _d_profile(c, des, 'Trigger post D', 'trig_post_d', 'trig_post_d / 2 - trig_post_flat')   # one flat, rear side, full length
     ext(c, prof, 'trig_post_x1 - trig_post_x0', FE.NewBodyFeatureOperation, 'Trigger post', start='trig_post_x0')
     build_post_lock_ends(c, des, 'trig')
     c.bRepBodies.item(0).name = 'TriggerPost'
@@ -2243,27 +2249,14 @@ def build_post_lock_shell(c, des, body, p):
 
 
 def build_post_lock_ends(c, des, p, dprofile_name=None):
-    """Post: round end piece (the D flat would let the end slip under the lips) and the neck ring cut."""
+    """Post neck ring cut (the end collar beside it is the rear-flatted post itself; the lips catch it above the flat)."""
     add_lock_params(des, p)
-    sk = c.sketches.add(c.yZConstructionPlane); sk.name = 'Post end piece'
-    circle_at(sk, des, '-(%s_piv_z)' % p, '%s_piv_y' % p, '%s_post_d' % p)
-    ext(c, all_profiles(sk), '%s_post_x1 - %s_lk_collar_x0' % (p, p), FE.JoinFeatureOperation, 'Post end piece', start='%s_lk_collar_x0' % p, target=c.bRepBodies.item(0))
     sk = c.sketches.add(c.yZConstructionPlane); sk.name = 'Post neck'
     c1 = circle_at(sk, des, '-(%s_piv_z)' % p, '%s_piv_y' % p, '%s_post_d + 1 mm' % p)
     c2 = sk.sketchCurves.sketchCircles.addByCenterRadius(c1.centerSketchPoint, ev_cm(des, '%s_lk_neck_d' % p) / 2)
     sk.sketchDimensions.addDiameterDimension(c2, P3(0.0, 0.0, 0.0)).parameter.expression = '%s_lk_neck_d' % p
     ring = profile_by_loops(sk, 2)[0]
     ext(c, ring, '%s_lk_neck_w' % p, FE.CutFeatureOperation, 'Post neck', start='%s_lk_c - %s_lk_neck_w / 2' % (p, p), target=c.bRepBodies.item(0))
-    # full-length print flat on the rear (-y) side: runs across the collars and neck so the post prints on one flat face
-    up = des.userParameters
-    if up.itemByName('trig_post_side') is None:
-        up.add('trig_post_side', VI('0.55 mm'), 'mm', 'Depth of the full-length print flat on the rear (-y) side of the post (across the collars and neck; the D flat and the lock are untouched)')
-    pin = c.constructionPlanes.createInput()
-    pin.setByOffset(c.xZConstructionPlane, VI('%s_piv_y - (%s_post_d / 2 - trig_post_side)' % (p, p)))
-    pl = c.constructionPlanes.add(pin); pl.name = 'Post print flat plane'
-    sk = c.sketches.add(pl); sk.name = 'Post print flat'
-    rect4(sk, des, '-12 mm', '12 mm', '-6 mm', '6 mm')
-    ext(c, all_profiles(sk), '%s_post_d' % p, FE.CutFeatureOperation, 'Post print flat', neg=True, target=c.bRepBodies.item(0))
 
 
 # ---------------------------------------------------------------- torsion spring mount (v2) ----
@@ -2714,7 +2707,7 @@ PT2_PARAMS = [
     ('pt_tip_z', '-pouch_bot_d + 0.3 mm', 'trigger tip trim: 0.3 mm above the belly'),
     ('pt_flat_len', '3.2 mm', 'length (y) of the flat bottom face at pt_tip_z (was 6.3 mm before the chamfer); the blade underside behind it is chamfered up to the lobe'),
     ('pt_post_d', '2.9 mm', 'pivot post diameter (D shape, as v1.1)'),
-    ('pt_post_flat', '0.55 mm', 'pivot post flat depth, on the +z side'),
+    ('pt_post_flat', '0.55 mm', 'pivot post flat depth, on the rear (-y) side (the post has this one flat only)'),
     ('pt_bore_clr', '0.15 mm', 'hub bore clearance per side around the post'),
     ('pt_sock_l', '-10.35 mm', 'left post socket end (x) in the drop position; the closed pocket behind it takes the post when it slides left'),
     ('pt_sock_r', '11.05 mm', 'right post socket end (x): room for the post to be dropped in 0.5 mm (trig_lk_slide) right of its locked position'),
@@ -2753,20 +2746,7 @@ def add_pt2_params(des):
 
 
 def _pt_d_profile(c, des, name, dia_e, flat_e):
-    """YZ sketch: circle of diameter dia_e about the pivot with a flat chord on the +z side, flat_e from the centre.
-    Returns (sketch, D profile)."""
-    sk = c.sketches.add(c.yZConstructionPlane); sk.name = name
-    circ = circle_at(sk, des, '-(pt_piv_z)', 'pt_piv_y', dia_e)
-    cx = circ.centerSketchPoint.geometry.x
-    L = sk.sketchCurves.sketchLines; dm = sk.sketchDimensions; O = sk.originPoint
-    xc = cx - ev_cm(des, flat_e)
-    ln = L.addByTwoPoints(P3(xc, ev_cm(des, 'pt_piv_y - 3 mm'), 0), P3(xc, ev_cm(des, 'pt_piv_y + 3 mm'), 0))
-    sk.geometricConstraints.addVertical(ln)
-    HO = adsk.fusion.DimensionOrientations
-    dm.addDistanceDimension(circ.centerSketchPoint, ln.startSketchPoint, HO.HorizontalDimensionOrientation, P3(xc, ev_cm(des, 'pt_piv_y') - 0.5, 0)).parameter.expression = flat_e
-    dm.addDistanceDimension(O, ln.startSketchPoint, HO.VerticalDimensionOrientation, P3(xc + 1, ev_cm(des, 'pt_piv_y - 3 mm') / 2, 0)).parameter.expression = 'pt_piv_y - 3 mm'
-    dm.addDistanceDimension(O, ln.endSketchPoint, HO.VerticalDimensionOrientation, P3(xc + 1, ev_cm(des, 'pt_piv_y + 3 mm') / 2, 0)).parameter.expression = 'pt_piv_y + 3 mm'
-    return sk, max(sk.profiles, key=lambda p: p.areaProperties().area)
+    return _rear_d_profile(c, des, name, dia_e, flat_e, 'pt')
 
 
 def build_pt_trigger(root, des):
