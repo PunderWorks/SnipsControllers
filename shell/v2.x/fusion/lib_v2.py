@@ -1537,7 +1537,7 @@ BAY_PARAMS = [
     ('bay_tab_clr', '0.2 mm', 'clearance per side of the panel rear tab in the thumb pocket'),
     ('bay_tab_t', '1.4 mm', 'panel rear tab thickness (up from the belly plane; the thumb pocket floor is about 1.65 up, so this leaves ~0.25 mm)'),
     ('bay_nail_w', '5 mm', 'fingernail notch width (x) in the panel rear tab end'),
-    ('bay_nail_h', '0.6 mm', 'fingernail notch height (z), centred in the tab thickness'),
+    ('bay_nail_h', '0.6 mm', 'fingernail notch depth (z) cut down from the tab top face'),
     ('bay_nail_len', '1.2 mm', 'fingernail notch depth (y) measured from the curved tab end at mid thickness'),
     ('bay_slot_up', '0.6 mm', 'extra height of the hook slots above the hook tab top (on top of bay_slot_clr)'),
 ]
@@ -1774,7 +1774,7 @@ def build_bay_panel_lip(comp, des):
 
 def build_bay_tab_trim_notch(comp, des, body):
     """Trim the tab's rear end to the shell's rear belly arc (radius edge_r, centred y_rear_out + edge_r, z -bot_d + edge_r*sin(edge_oh)),
-    so it ends flush with the outer skin, then cut a small horizontal fingernail notch into that end."""
+    so it ends flush with the outer skin, then cut a small fingernail notch in its top face (see build_bay_tab_notch)."""
     add_bay_params(des)
     H = adsk.fusion.DimensionOrientations
     # YZ plane sketch: sketch x = -z, sketch y = y
@@ -1788,9 +1788,14 @@ def build_bay_tab_trim_notch(comp, des, body):
     R = ev_cm(des, 'edge_r')
     outside = [pr for pr in sk.profiles if math.hypot(pr.areaProperties().centroid.x - cx, pr.areaProperties().centroid.y - cy) > R]
     ext(comp, outside[0], '2 * bay_thumb_hw', FE.CutFeatureOperation, 'Panel tab end trim', start='-bay_thumb_hw', target=body)
-    # horizontal fingernail notch
+    build_bay_tab_notch(comp, des, body)
+
+
+def build_bay_tab_notch(comp, des, body):
+    """Fingernail notch: a shallow rebate across the top face of the tab end, so a nail fits into the gap between the shell and the panel."""
+    add_bay_params(des)
     sk = comp.sketches.add(comp.xZConstructionPlane); sk.name = 'Panel tab nail notch'
-    rect4(sk, des, '-(bay_nail_w / 2)', 'bay_nail_w / 2', 'bot_d - bay_tab_t / 2 - bay_nail_h / 2', 'bot_d - bay_tab_t / 2 + bay_nail_h / 2')
+    rect4(sk, des, '-(bay_nail_w / 2)', 'bay_nail_w / 2', 'bot_d - bay_tab_t - 0.2 mm', 'bot_d - bay_tab_t + bay_nail_h')
     ext(comp, main_profile(sk), 'bay_nail_len + 0.8 mm', FE.CutFeatureOperation, 'Panel tab nail notch',
         start='bay_pan_y0 - bay_pan_clr - bay_thumb_len + bay_tab_clr', target=body)
 

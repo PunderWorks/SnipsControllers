@@ -109,4 +109,4 @@ Print files regenerated for the new/changed parts only (unchanged print STEPs we
 
 2026-11-24 (evening): battery panel rear tab shaped
   - Tab end trimmed to the shell's rear belly arc (`edge_r`, 'Panel tab end trim') so it ends flush with the outer skin (tab now ends at y -49.53).
-  - Small horizontal fingernail notch in the tab end ('Panel tab nail notch': `bay_nail_w` 5, `bay_nail_h` 0.6, `bay_nail_len` 1.2). BatteryPanel re-exported, watertight; zero interference with BottomShell.
+  - Fingernail notch: a 0.6 mm deep rebate across the top face of the tab end, facing the shell ('Panel tab nail notch': `bay_nail_w` 5, `bay_nail_h` 0.6, `bay_nail_len` 1.2). BatteryPanel re-exported, watertight; zero interference with BottomShell.
