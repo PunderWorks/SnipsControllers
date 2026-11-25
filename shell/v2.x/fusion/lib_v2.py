@@ -258,7 +258,7 @@ OLED_PARAMS = [
     ('oled_panel_top', '5.4 mm', 'OLED panel top edge, below PCB top edge (measured, about)'),
     ('oled_va_w', '23.744 mm', 'OLED visible area width'),
     ('oled_va_h', '12.864 mm', 'OLED visible area height'),
-    ('oled_va_top', '5.37 mm', 'OLED visible area top, below PCB top edge'),
+    ('oled_va_top', '5.5 mm', 'OLED visible area top, below PCB top edge (0.1 mm inside the glass edge)'),
     ('oled_aa_w', '21.744 mm', 'OLED active area width'),
     ('oled_aa_h', '10.864 mm', 'OLED active area height'),
     ('oled_aa_top', '6.37 mm', 'OLED active area top, below PCB top edge'),
