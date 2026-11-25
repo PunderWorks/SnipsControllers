@@ -147,3 +147,9 @@ Print files regenerated for the new/changed parts only (unchanged print STEPs we
   - Slide raised 0.5 -> 1.0 mm (`lk_slide`) for easier assembly; post neck widened to 1.5 mm (`lk_neck_w`, lip + 0.15 mm each side); right socket end `sock_r` 11.05 -> 11.8 mm so the end piece still sits 0.85 mm under the lip when locked. The post is 1.7 mm longer at the right end (x -10.20..11.65).
   - Checks (post vs shell, both variants): free drop from above at the drop position; slides to -1.0 mm without contact and stops against the pocket end beyond that; locked, any lift collides from 0.2 mm (retained); neck misaligned (dx -0.3) cannot be lifted out. Timeline healthy in both shells (the pouch rim fillet kept its edge this time).
   - Exports: BottomShell, BottomShell_Pouch, TriggerPost, TriggerPost_Pouch (STEP, STL, print files for the first three; TriggerPost_Pouch has no separate print file); all watertight. README: post and lock notes updated.
+
+2026-11-24 (night): cell note and polarity marks moved to the battery panel
+  - Print test: the engraved text on the BottomShell ledges came out ragged. Those faces point down onto supports in the belly-down print.
+  - BottomShell: the cell note ("LI-ION" / "14500") is removed; the + and - marks stay on the ledges (`build_bay_polarity`, unchanged otherwise).
+  - BatteryPanel: new `build_bay_panel_marks` engraves + (rear end), - (front end) and the note (LI-ION right strip, 14500 left strip) into the inner (cell side) face, on the flat strip between the cell scoop edge and the snap arm slit. The panel prints outer face down, so this is an up-facing surface and prints clean. New parameters `pp_h` 2.2 mm text height, `pp_depth` 0.5 mm, `pp_x` (strip centre, derived), `pp_y_lo`, `pp_y_hi`, `pp_edge`. Text reads rear to front, glyph tops toward -x.
+  - Exports: BottomShell, BatteryPanel (STEP, STL, print files), both watertight. README updated.

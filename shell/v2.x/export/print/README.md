@@ -32,8 +32,9 @@ them) for a 3 x 1 mm strap loop. Slots are narrow and tall with rounded ends, so
 ## 14500 bay ceiling and markings (BottomShell only)
 - 0.7 mm printed ceiling over the cell at the rear (positive) end and the front (negative) end of the bay, open under the XBee module,
   radial clearance to the cell unchanged (`bay_ceil_*` parameters). Printed belly down the new part is a domed roof over the cell trench: the surface is steeper than 45 deg up to the arc tips, then the last ~10.6 mm (between the arc tips) curves over to horizontal and has to bridge. Expect it to print with bridge settings; check the preview and add slicer supports only if the dome sags (not yet test-printed).
-- Engraved + / - at the two ends of both ledges and "Li-ion 14500 only" on the right ledge (`pol_*` parameters, 0.5 mm deep).
-  The ledge is a bridge when printed belly down, so the letters may print a little rough.
+- Engraved + / - at the two ends of both ledges (`pol_*` parameters, 0.6 mm deep). The ledge faces down onto supports when printed belly down, so
+  only the simple + and - marks go there; the text did not print cleanly. The cell note ("LI-ION" right, "14500" left) and a second set of + / - are
+  engraved in the inner (cell side) face of `BatteryPanel`, which prints face up (`pp_*` parameters, 0.5 mm deep, reading rear to front).
 - The negative end continues the same round ceiling to the front contact holder (no flat roof; the bore bridges the same ~10.6 mm as the rest of the ceiling). The battery opening and `BatteryPanel` are ~6.5 mm longer than before so the cell drops straight out; the panel's hook tabs go under two pads beside the contact holder.
 
 - Contact pockets have crush ribs (0.05 mm interference per side, `bay_ret_*`), a lead-in chamfer and wire relief steps in the cheek tops. Test-print the pocket first; if a contact is too tight or loose change `bay_ret_rib_int` rather than the clearance.

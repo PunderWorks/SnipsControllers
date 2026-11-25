@@ -3396,9 +3396,10 @@ def _pol_text(sk, des, text, h_expr, side, yc_expr, len_expr, zf=None):
 
 
 def build_bay_polarity(c, des, body, sides=(1, -1)):
-    """Engrave + / - at the two ends of both ledges, and the cell note split across the ledges (LI-ION right, 14500 left)."""
+    """Engrave + / - at the two ends of both ledges. (The cell note moved to the battery panel: engraved on these downward-facing
+    ledges it prints against supports and comes out ragged, see build_bay_panel_marks.)"""
     add_pol_params(des)
-    for side, nm, note in [t for t in ((1, 'Polarity marks right ledge', 'LI-ION'), (-1, 'Polarity marks left ledge', '14500')) if t[0] in sides]:
+    for side, nm, note in [t for t in ((1, 'Polarity marks right ledge', None), (-1, 'Polarity marks left ledge', None)) if t[0] in sides]:
         sk = c.sketches.add(ledge_face(body, side)); sk.name = nm
         texts = adsk.core.ObjectCollection.create()
         texts.add(_pol_text(sk, des, '+', 'pol_h', side, 'pol_y_lo + pol_edge', '3 mm'))
@@ -3406,6 +3407,66 @@ def build_bay_polarity(c, des, body, sides=(1, -1)):
         if note:
             texts.add(_pol_text(sk, des, note, 'pol_note_h', side, '(pol_y_lo + pol_y_hi) / 2', '19 mm'))
         ext(c, texts, 'pol_depth', FE.CutFeatureOperation, 'Engrave ' + nm.lower(), neg=True, target=body)
+
+
+# ---------------------------------------------------------------- battery panel inner face: polarity marks + cell note ----
+# The panel prints outer face down, so its inner (cell side) face is an upward-facing top surface and engraved text prints cleanly there
+# (the same text on the shell ledges, which face down onto supports, did not). Two flat strips beside the cell scoop, one per side:
+# + at the rear end, - at the front end (rear = palm end = +), the note between them. Text reads rear -> front, glyph tops toward -x.
+PANEL_MARK_PARAMS = [
+    ('pp_h', '2.2 mm', 'panel mark text height (strip is about 2.9 mm wide)'),
+    ('pp_depth', '0.5 mm', 'panel mark engraving depth'),
+    ('pp_x', '(sqrt((bay_cell_d / 2 + bay_trench_clr) * (bay_cell_d / 2 + bay_trench_clr) - (bay_pan_t - bot_d - bay_axis_z) * (bay_pan_t - bot_d - bay_axis_z)) + (bay_pan_w / 2 - bay_arm_t - bay_slit_w)) / 2',
+     'x of the strip centre line (abs): between the cell scoop edge at the panel top and the snap arm slit'),
+    ('pp_y_lo', 'bay_pan_step_y + 1 mm', 'rear end of the marked strip'),
+    ('pp_y_hi', 'bay_pan_y1 - 1 mm', 'front end of the marked strip'),
+    ('pp_edge', '2.4 mm', 'centre of the + and - marks from the strip ends'),
+]
+
+
+def add_panel_mark_params(des):
+    add_bay_panel_params(des)
+    up = des.userParameters
+    for n, e, c in PANEL_MARK_PARAMS:
+        pr = up.itemByName(n)
+        if pr is None: up.add(n, VI(e), 'mm', c)
+        else: pr.expression = e
+
+
+def _panel_text(sk, des, text, side, yc_expr, len_expr):
+    """Text along a fully constrained construction line parallel to y on an XY sketch (model x, y = sketch x, y), centred on x = side * pp_x."""
+    H = adsk.fusion.DimensionOrientations
+    hv = ev_cm(des, 'pp_h'); xb = side * ev_cm(des, 'pp_x') + POL_CAP * hv   # tops toward -x
+    yc = ev_cm(des, yc_expr); ln = ev_cm(des, len_expr)
+    line = sk.sketchCurves.sketchLines.addByTwoPoints(P3(xb, yc - ln / 2, 0), P3(xb, yc + ln / 2, 0))
+    line.isConstruction = True
+    sk.geometricConstraints.addVertical(line)
+    dm = sk.sketchDimensions
+    uexpr = ('(pp_x) + %g * (pp_h)' if side > 0 else '-(pp_x) + %g * (pp_h)') % POL_CAP
+    d = dm.addDistanceDimension(sk.originPoint, line.startSketchPoint, H.HorizontalDimensionOrientation, P3(xb / 2, yc - ln / 2 - 0.3, 0))
+    _signed_dim(d, uexpr if side > 0 else '(pp_x) - %g * (pp_h)' % POL_CAP, lambda: line.startSketchPoint.geometry.x, xb)
+    dm.addDistanceDimension(line.startSketchPoint, line.endSketchPoint, H.VerticalDimensionOrientation, P3(xb + 0.3, yc, 0)).parameter.expression = len_expr
+    d = dm.addDistanceDimension(sk.originPoint, line.startSketchPoint, H.VerticalDimensionOrientation, P3(xb - 0.3, (yc - ln / 2) / 2, 0))
+    _signed_dim(d, '(%s) - (%s) / 2' % (yc_expr, len_expr), lambda: line.startSketchPoint.geometry.y, yc - ln / 2)
+    ti = sk.sketchTexts.createInput2(text, hv)
+    ti.fontName = POL_FONT; ti.textStyle = adsk.fusion.TextStyles.TextStyleBold
+    ti.setAsAlongPath(line, True, adsk.core.HorizontalAlignments.CenterHorizontalAlignment, 0)
+    t = sk.sketchTexts.add(ti)
+    t.heightParameter.expression = 'pp_h'
+    return t
+
+
+def build_bay_panel_marks(comp, des):
+    """Engrave + / - and the cell note (LI-ION right strip, 14500 left strip) into the panel's inner face."""
+    add_panel_mark_params(des)
+    body = comp.bRepBodies.item(0)
+    for side, nm, note in ((1, 'Panel marks right', 'LI-ION'), (-1, 'Panel marks left', '14500')):
+        sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = nm
+        texts = adsk.core.ObjectCollection.create()
+        texts.add(_panel_text(sk, des, '+', side, 'pp_y_lo + pp_edge', '3 mm'))
+        texts.add(_panel_text(sk, des, '\u2212', side, 'pp_y_hi - pp_edge', '3 mm'))
+        texts.add(_panel_text(sk, des, note, side, '(pp_y_lo + pp_y_hi) / 2', '19 mm'))
+        ext(comp, texts, 'pp_depth', FE.CutFeatureOperation, 'Engrave ' + nm.lower(), neg=True, start='bay_pan_t - bot_d', target=body)
 
 
 # ---------------------------------------------------------------- 14500 bay contact retention (standard shell only)
