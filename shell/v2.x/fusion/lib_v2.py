@@ -1517,6 +1517,10 @@ BAY_PARAMS = [
     ('bay_hold_top_z', '-1.5 mm', 'contact holder top'),
     ('bay_clip_w', '11.25 mm', 'rear contact plate width'),
     ('bay_clip_h', '12 mm', 'rear contact plate height (not counting the 3 x 6.5 mm tab on top)'),
+    ('bay_rail_in', '0.5 mm', 'rear contact retaining rail: overlap over each plate edge'),
+    ('bay_rail_gap', '0.05 mm', 'rear contact retaining rail: clearance in front of the plate face'),
+    ('bay_rail_cell_clr', '0.05 mm', 'rear contact retaining rail: clearance to the cell rear end'),
+    ('bay_rail_z0', '-12.5 mm', 'rear contact retaining rail bottom (the belly panel top is at -12.8)'),
     ('bay_clip_floor_z', 'bay_axis_z - bay_clip_h / 2 - bay_hold_clr', 'rear contact slot floor: plate centred on the cell axis, 0.1 mm under it'),
     ('bay_blk_w', '10.8 mm', 'front block plate width'),
     ('bay_pan_w', '21.6 mm', 'panel width'),
@@ -1661,6 +1665,22 @@ def build_bay_rear_slot(c, des, body):
         ('-(%s)' % hx, '%s' % hx, 'bay_clip_y - bay_hold_clr', 'bay_clip_y + bay_clip_t + 0.2 mm')])
     ext(c, main_profile(sk), 'bay_hold_top_z - bay_clip_floor_z', FE.CutFeatureOperation, 'Bay rear contact slot',
         start='bay_clip_floor_z', target=body)
+
+
+def build_bay_rear_rails(c, des, body):
+    """Retaining rails for the rear contact: one on each side wall, just in front of the plate front face, overlapping each plate edge
+    by bay_rail_in. Thickness is whatever fits between the plate and the cell rear end. An anchor block behind each lip is buried in
+    the cheek, because the lip itself sticks out past the cheek end. Rails start above the belly panel (bay_rail_z0) and run to the
+    plate top, so the plate drops in from above behind them."""
+    add_bay_params(des)
+    y0 = 'bay_clip_y + bay_clip_t + bay_rail_gap'; y1 = 'bay_cell_y0 - bay_rail_cell_clr'
+    ya = 'bay_clip_y + bay_clip_t - 0.5 mm'
+    xi = 'bay_clip_w / 2 - bay_rail_in'; hx = 'bay_clip_w / 2 + bay_hold_clr'; xo = 'bay_clip_w / 2 + bay_hold_clr + bay_hold_w'
+    sk = _xy_rects(c, des, 'Bay rear contact rails', [
+        ('-(%s)' % hx, '-(%s)' % xi, y0, y1), ('%s' % xi, '%s' % hx, y0, y1),
+        ('-(%s)' % xo, '-(%s)' % hx, ya, y1), ('%s' % hx, '%s' % xo, ya, y1)])
+    ext(c, all_profiles(sk), 'bay_clip_floor_z + bay_clip_h - bay_rail_z0', FE.JoinFeatureOperation, 'Bay rear contact rails',
+        start='bay_rail_z0', target=body)
 
 
 def build_bay_hook_slots(c, des, body):
