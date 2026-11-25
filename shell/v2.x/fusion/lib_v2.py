@@ -1516,7 +1516,7 @@ BAY_PARAMS = [
     ('bay_thumb_hw', '4.5 mm', 'thumb pocket half width (x) in the belly behind the panel'),
     ('bay_thumb_len', '3.5 mm', 'thumb pocket length (y) behind the panel rear edge'),
     ('bay_tab_clr', '0.2 mm', 'clearance per side of the panel rear tab in the thumb pocket'),
-    ('bay_tab_t', '0.4 mm', 'panel rear tab thickness (up from the belly plane; pocket is 0.6 deep)'),
+    ('bay_tab_t', '1.4 mm', 'panel rear tab thickness (up from the belly plane; the thumb pocket floor is about 1.65 up, so this leaves ~0.25 mm)'),
     ('bay_slot_up', '0.6 mm', 'extra height of the hook slots above the hook tab top (on top of bay_slot_clr)'),
 ]
 
@@ -1741,11 +1741,11 @@ def build_bay_panel(root, des):
 
 def build_bay_panel_lip(comp, des):
     """Rear tab on the battery panel: a flat tongue past the rear edge that sits flush in the thumb pocket behind the panel.
-    It keeps the panel from dropping into the bay (the front hooks only hold the other end) and adds nothing proud of the belly."""
+    Solid and thick (bay_tab_t, fills the pocket depth less a gap) and buried 2 mm into the panel body so it reads as part of the panel."""
     add_bay_params(des)
     body = comp.bRepBodies.item(0)
     sk = _xy_rects(comp, des, 'Panel rear tab', [('-(bay_thumb_hw - bay_tab_clr)', 'bay_thumb_hw - bay_tab_clr',
-                                                  'bay_pan_y0 - bay_pan_clr - bay_thumb_len + bay_tab_clr', 'bay_pan_y0 + 0.5 mm')])
+                                                  'bay_pan_y0 - bay_pan_clr - bay_thumb_len + bay_tab_clr', 'bay_pan_y0 + 2 mm')])
     ext(comp, main_profile(sk), 'bay_tab_t', FE.JoinFeatureOperation, 'Panel rear tab', start='-bot_d', target=body)
 
 
