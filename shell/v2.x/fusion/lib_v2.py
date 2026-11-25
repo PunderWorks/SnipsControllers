@@ -2113,7 +2113,7 @@ TRIG2_PARAMS = [
     ('trig_post_flat', '0.55 mm', 'pivot post flat depth, on the rear (-y) side (the post has this one flat only)'),
     ('trig_bore_clr', '0.15 mm', 'hub bore clearance per side around the post'),
     ('trig_sock_l', '-10.35 mm', 'left post socket end (x) in the drop position; the closed pocket behind it takes the post when it slides left'),
-    ('trig_sock_r', '11.05 mm', 'right post socket end (x): room for the post to be dropped in 0.5 mm (trig_lk_slide) right of its locked position'),
+    ('trig_sock_r', '11.8 mm', 'right post socket end (x): room for the post to be dropped in 1 mm (lk_slide) right of its locked position; end piece 0.85 mm under the lip when locked'),
     ('trig_sock_clr', '0.15 mm', 'socket clearance per side around the post'),
     ('trig_post_x0', 'trig_sock_l + 0.15 mm', 'post left end'),
     ('trig_post_x1', 'trig_sock_r - 0.15 mm', 'post right end'),
@@ -2252,12 +2252,12 @@ def build_trigger_sockets(c, des, body):
 def add_lock_params(des, p):
     up = des.userParameters
     for n, e, cm in (
-        ('lk_slide', '0.5 mm', 'post slide from the drop position to the locked position (toward -x)'),
+        ('lk_slide', '1 mm', 'post slide from the drop position to the locked position (toward -x)'),
         ('lk_c', '10.1 mm', 'lip / post neck centre (x) in the drop position'),
-        ('lk_lip_w', '0.6 mm', 'lip width (x)'),
+        ('lk_lip_w', '1.2 mm', 'lip width (x): at least 3 extrusion lines so it prints solid'),
         ('lk_gap', '2.3 mm', 'gap between the two lips (y): clears the neck, stops the end collar'),
         ('lk_neck_d', '2.0 mm', 'post neck diameter'),
-        ('lk_neck_w', '0.9 mm', 'post neck width (x): lip width + 0.15 mm each side'),
+        ('lk_neck_w', '1.5 mm', 'post neck width (x): lip width + 0.15 mm each side'),
         ('lk_lip_dz', '0.93 mm', 'lip underside height above the pivot axis (0.05 mm over the collar at the lip edge)'),
         ('lk_lip_top', '1.5 mm', 'lip top (z)'),
         ('lk_collar_x0', '9.1 mm', 'post: round end piece starts here (x)')):
@@ -2273,12 +2273,24 @@ def build_post_lock_shell(c, des, body, p):
     sk = c.sketches.add(c.yZConstructionPlane); sk.name = 'Post pocket left'
     circle_at(sk, des, '-(%s_piv_z)' % p, '%s_piv_y' % p, '%s_post_d + 2 * %s_sock_clr' % (p, p))
     ext(c, all_profiles(sk), '%s_lk_slide' % p, FE.CutFeatureOperation, 'Post pocket left', neg=True, start='%s_sock_l' % p, target=body)
+    build_post_lips(c, des, body, p)
+
+
+def build_post_lips(c, des, body, p):
+    """The two retaining lips over the right socket (wedge profile, see below)."""
+    add_lock_params(des, p)
     half = '(%s_post_d / 2 + %s_sock_clr + 0.2 mm)' % (p, p)
-    left, right = '-(%s_lk_lip_top)' % p, '-(%s_piv_z + %s_lk_lip_dz)' % (p, p)
-    for nm, y0, y1 in (('front', '%s_piv_y + %s_lk_gap / 2' % (p, p), '%s_piv_y + %s' % (p, half)),
-                       ('rear', '%s_piv_y - %s' % (p, half), '%s_piv_y - %s_lk_gap / 2' % (p, p))):
+    gh = '(%s_lk_gap / 2)' % p
+    zb = '(%s_piv_z + %s_lk_lip_dz)' % (p, p)          # lip tip underside (world z)
+    # Each lip is a wedge: vertical tip face, 45 deg underside sloping down into the wall, so it prints without support (a flat 0.45 mm
+    # overhang closed up and left the post unretained). The sketch x axis is -z.
+    for nm, sg in (('front', 1), ('rear', -1)):
+        Y = lambda off: ('%s_piv_y + %s' % (p, off)) if sg > 0 else ('%s_piv_y - %s' % (p, off))
         sk = c.sketches.add(c.yZConstructionPlane); sk.name = 'Post lip ' + nm
-        rect4(sk, des, left, right, y0, y1)
+        poly_pts(sk, des, [('-(%s)' % zb, Y(gh)),
+                           ('-(%s - (%s - %s))' % (zb, half, gh), Y(half)),
+                           ('-(%s_lk_lip_top)' % p, Y(half)),
+                           ('-(%s_lk_lip_top)' % p, Y(gh))])
         ext(c, all_profiles(sk), '%s_lk_lip_w' % p, FE.JoinFeatureOperation, 'Post lip ' + nm, start='%s_lk_c - %s_lk_lip_w / 2' % (p, p), target=body)
 
 
@@ -2744,7 +2756,7 @@ PT2_PARAMS = [
     ('pt_post_flat', '0.55 mm', 'pivot post flat depth, on the rear (-y) side (the post has this one flat only)'),
     ('pt_bore_clr', '0.15 mm', 'hub bore clearance per side around the post'),
     ('pt_sock_l', '-10.35 mm', 'left post socket end (x) in the drop position; the closed pocket behind it takes the post when it slides left'),
-    ('pt_sock_r', '11.05 mm', 'right post socket end (x): room for the post to be dropped in 0.5 mm (trig_lk_slide) right of its locked position'),
+    ('pt_sock_r', '11.8 mm', 'right post socket end (x): room for the post to be dropped in 1 mm (lk_slide) right of its locked position; end piece 0.85 mm under the lip when locked'),
     ('pt_sock_clr', '0.15 mm', 'socket clearance per side around the post'),
     ('pt_post_x0', 'pt_sock_l + 0.15 mm', 'post left end'),
     ('pt_post_x1', 'pt_sock_r - 0.15 mm', 'post right end'),

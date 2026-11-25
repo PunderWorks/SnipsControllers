@@ -17,7 +17,7 @@ use slicer supports where noted. Source of truth: `../../fusion/SnipsShell_v2.f3
 | SideButtonL1/L2, R1/R2 | flat base on the bed, D stem up | none |
 | Trigger | big flat blade face on the bed, spring ear up | none expected |
 | Trigger_Pouch | big flat blade face on the bed, spring ear up | none expected. Pouch variant only (use `Trigger` with `BottomShell`) |
-| TriggerPost | lying along X on its full-length rear flat (a second flat, `trig_post_side` 0.55 mm deep, runs across the round collars and neck; the D flat and the lock are untouched) | none |
+| TriggerPost | lying along X on its single rear flat (`trig_post_flat` 0.55 mm, the D flat: the post has no other flat) | none |
 
 ## Variants
 Standard build: `BottomShell` + `Trigger` + `BatteryPanel` (14500 cell). Pouch build: `BottomShell_Pouch` + `Trigger_Pouch` (YDL103035
@@ -51,3 +51,8 @@ them) for a 3 x 1 mm strap loop. Slots are narrow and tall with rounded ends, so
 Run from `tools/` (they find `export/stl|step` and `print/` from their own location; override with `SNIPS_EXPORT_DIR` / `SNIPS_PRINT_DIR`):
 `python export_print.py` (STL) and `python step_orient.py` (STEP). Orientations live in `export_print_cfg.py`.
 Needs numpy, scipy, trimesh, rtree and build123d. (`build_sup.py`, `gen_buck.py`, `gen_supports.py` are carried over from v1.1 and not used for v2.)
+
+## Trigger post lock (BottomShell and BottomShell_Pouch)
+The post is dropped into the U-slots with its neck lined up with the two lips, then pushed 1 mm toward -x (`lk_slide`): the left end goes into a
+closed pocket and the end piece goes under the lips. Each lip is a wedge 1.2 mm wide (`lk_lip_w`) with a vertical tip face and a 45 deg underside
+sloping into the wall, so it prints without supports. The earlier 0.6 mm square-underside lips did not print on a 0.4 mm nozzle and the post fell out.
