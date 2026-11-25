@@ -253,7 +253,7 @@ OLED_PARAMS = [
     ('oled_hole_inset', '(oled_pcb_l - oled_hole_dy) / 2', 'OLED mounting hole centre inset from the PCB top/bottom edges'),
     ('oled_notch_w', '14 mm', 'OLED PCB bottom-edge notch width (ESTIMATED from drawing)'),
     ('oled_notch_d', '2 mm', 'OLED PCB bottom-edge notch depth (ESTIMATED from drawing)'),
-    ('oled_panel_w', '26.7 mm', 'OLED panel (glass) width'),
+    ('oled_panel_w', '24.85 mm', 'OLED panel (glass) width (same as the PCB)'),
     ('oled_panel_h', '19.26 mm', 'OLED panel (glass) height'),
     ('oled_panel_top', '4.27 mm', 'OLED panel top edge, below PCB top edge'),
     ('oled_va_w', '23.744 mm', 'OLED visible area width'),
