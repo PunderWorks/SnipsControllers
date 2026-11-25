@@ -1719,17 +1719,8 @@ def build_bay_panel(root, des):
     comp = new_component(root, 'BatteryPanel')
     # envelope: the shell's own rear belly curve (YZ sketch: x = -z, y = y), extruded symmetric about x = 0
     sk = comp.sketches.add(comp.yZConstructionPlane); sk.name = 'Panel envelope'
-    rect = rect4(sk, des, 'bot_d - 7 mm', 'bot_d', 'y_rear_out', 'bay_pan_y1')
-    lines = [rect.item(i) for i in range(4)]
-    def horiz(l): return abs(l.startSketchPoint.geometry.y - l.endSketchPoint.geometry.y) < 1e-9
-    bottom = min([l for l in lines if horiz(l)], key=lambda l: l.startSketchPoint.geometry.y)
-    right = max([l for l in lines if not horiz(l)], key=lambda l: l.startSketchPoint.geometry.x)
-    def mid(l):
-        a = l.startSketchPoint.geometry; b = l.endSketchPoint.geometry
-        return P3((a.x + b.x) / 2, (a.y + b.y) / 2, 0)
-    arc = sk.sketchCurves.sketchArcs.addFillet(right, mid(right), bottom, mid(bottom), ev_cm(des, 'edge_r'))
-    g = arc.centerSketchPoint.geometry
-    sk.sketchDimensions.addRadialDimension(arc, P3(g.x - 0.3, g.y + 0.3, 0)).parameter.expression = 'edge_r'
+    # plain rectangle: the underside stays flat to the rear (the rear belly arc is only on the tab end, see build_bay_tab_trim_notch)
+    rect4(sk, des, 'bot_d - 7 mm', 'bot_d', 'y_rear_out', 'bay_pan_y1')
     inp = comp.features.extrudeFeatures.createInput(main_profile(sk), FE.NewBodyFeatureOperation)
     inp.setSymmetricExtent(VI('bay_pan_w'), True)
     f = comp.features.extrudeFeatures.add(inp); f.name = 'Panel envelope'
