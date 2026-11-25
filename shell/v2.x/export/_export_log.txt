@@ -106,3 +106,7 @@ Print files regenerated for the new/changed parts only (unchanged print STEPs we
 
 2026-11-24 (evening): power button guide tube fin
   - The 7.2 mm guide tube behind the power button started 0.3 mm in front of `pwr_floor_y`, and at the rear-left corner the outer wall curves away (`r_rear_out`), so the tube's outer corner poked through the skin as a small fin (x -15.6 to -14.62, z 1.95 to 9.15). New 'Power tube trim' cut (`build_power_tube_trim`) removes everything outside the corner arc there. TopShell re-exported, watertight.
+
+2026-11-24 (evening): battery panel rear tab shaped
+  - Tab end trimmed to the shell's rear belly arc (`edge_r`, 'Panel tab end trim') so it ends flush with the outer skin (tab now ends at y -49.53).
+  - Small horizontal fingernail notch in the tab end ('Panel tab nail notch': `bay_nail_w` 5, `bay_nail_h` 0.6, `bay_nail_len` 1.2). BatteryPanel re-exported, watertight; zero interference with BottomShell.

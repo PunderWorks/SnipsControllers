@@ -1536,6 +1536,9 @@ BAY_PARAMS = [
     ('bay_thumb_len', '3.5 mm', 'thumb pocket length (y) behind the panel rear edge'),
     ('bay_tab_clr', '0.2 mm', 'clearance per side of the panel rear tab in the thumb pocket'),
     ('bay_tab_t', '1.4 mm', 'panel rear tab thickness (up from the belly plane; the thumb pocket floor is about 1.65 up, so this leaves ~0.25 mm)'),
+    ('bay_nail_w', '5 mm', 'fingernail notch width (x) in the panel rear tab end'),
+    ('bay_nail_h', '0.6 mm', 'fingernail notch height (z), centred in the tab thickness'),
+    ('bay_nail_len', '1.2 mm', 'fingernail notch depth (y) measured from the curved tab end at mid thickness'),
     ('bay_slot_up', '0.6 mm', 'extra height of the hook slots above the hook tab top (on top of bay_slot_clr)'),
 ]
 
@@ -1766,6 +1769,30 @@ def build_bay_panel_lip(comp, des):
     sk = _xy_rects(comp, des, 'Panel rear tab', [('-(bay_thumb_hw - bay_tab_clr)', 'bay_thumb_hw - bay_tab_clr',
                                                   'bay_pan_y0 - bay_pan_clr - bay_thumb_len + bay_tab_clr', 'bay_pan_y0 + 2 mm')])
     ext(comp, main_profile(sk), 'bay_tab_t', FE.JoinFeatureOperation, 'Panel rear tab', start='-bot_d', target=body)
+    build_bay_tab_trim_notch(comp, des, body)
+
+
+def build_bay_tab_trim_notch(comp, des, body):
+    """Trim the tab's rear end to the shell's rear belly arc (radius edge_r, centred y_rear_out + edge_r, z -bot_d + edge_r*sin(edge_oh)),
+    so it ends flush with the outer skin, then cut a small horizontal fingernail notch into that end."""
+    add_bay_params(des)
+    H = adsk.fusion.DimensionOrientations
+    # YZ plane sketch: sketch x = -z, sketch y = y
+    sk = comp.sketches.add(comp.yZConstructionPlane); sk.name = 'Panel tab end trim'
+    rect4(sk, des, 'bot_d - 3.5 mm', 'bot_d + 0.2 mm', 'y_rear_out - 0.35 mm', 'y_rear_out + 1.85 mm')
+    cx, cy = ev_cm(des, 'bot_d - edge_r * sin(edge_oh)'), ev_cm(des, 'y_rear_out + edge_r')
+    c = sk.sketchCurves.sketchCircles.addByCenterRadius(P3(cx, cy, 0), ev_cm(des, 'edge_r'))
+    sk.sketchDimensions.addDistanceDimension(sk.originPoint, c.centerSketchPoint, H.HorizontalDimensionOrientation, P3(cx / 2, 0.5, 0)).parameter.expression = 'bot_d - edge_r * sin(edge_oh)'
+    sk.sketchDimensions.addDistanceDimension(sk.originPoint, c.centerSketchPoint, H.VerticalDimensionOrientation, P3(0.5, cy / 2, 0)).parameter.expression = '-(y_rear_out + edge_r)'
+    sk.sketchDimensions.addDiameterDimension(c, P3(cx + 2, cy - 2, 0)).parameter.expression = '2 * edge_r'
+    R = ev_cm(des, 'edge_r')
+    outside = [pr for pr in sk.profiles if math.hypot(pr.areaProperties().centroid.x - cx, pr.areaProperties().centroid.y - cy) > R]
+    ext(comp, outside[0], '2 * bay_thumb_hw', FE.CutFeatureOperation, 'Panel tab end trim', start='-bay_thumb_hw', target=body)
+    # horizontal fingernail notch
+    sk = comp.sketches.add(comp.xZConstructionPlane); sk.name = 'Panel tab nail notch'
+    rect4(sk, des, '-(bay_nail_w / 2)', 'bay_nail_w / 2', 'bot_d - bay_tab_t / 2 - bay_nail_h / 2', 'bot_d - bay_tab_t / 2 + bay_nail_h / 2')
+    ext(comp, main_profile(sk), 'bay_nail_len + 0.8 mm', FE.CutFeatureOperation, 'Panel tab nail notch',
+        start='bay_pan_y0 - bay_pan_clr - bay_thumb_len + bay_tab_clr', target=body)
 
 
 def build_bay_grooves(bot_comp, des, body):
