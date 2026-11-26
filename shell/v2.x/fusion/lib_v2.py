@@ -402,6 +402,31 @@ def build_oled_mount(top_comp, des):
     return mf
 
 
+OLED_WALL_PARAMS = [
+    ('oled_wall_t', '1.2 mm', 'OLED locating wall thickness (left, right and rear; the front stays open so the module slides in)'),
+    ('oled_wall_clr', '0.2 mm', 'clearance between the OLED PCB edge and the locating walls'),
+    ('oled_wall_z0', 'oled_glass_top_z - oled_glass_t - oled_pcb_t', 'wall bottom = the seated PCB underside; the module slides in below this over the posts, then lifts into the walls'),
+]
+
+
+def build_oled_walls(top_comp, des):
+    """Left, right and rear walls around the seated OLED PCB, hanging from the roof underside (runs 0.2 mm into the roof), so the
+    module sits in a cutout and cannot slide once taped. Same footprint rule as the pads: PCB outline plus oled_wall_clr."""
+    up = des.userParameters
+    for n, e, c in OLED_WALL_PARAMS:
+        if up.itemByName(n) is None:
+            up.add(n, VI(e), 'mm', c)
+    body = top_comp.bRepBodies.item(0)
+    xi = 'oled_pcb_w / 2 + oled_wall_clr'; xo = 'oled_pcb_w / 2 + oled_wall_clr + oled_wall_t'
+    yr = 'oled_front_y - oled_pcb_l - oled_wall_clr'            # inside face of the rear wall
+    sk = top_comp.sketches.add(top_comp.xYConstructionPlane); sk.name = 'OLED walls'
+    rows = [('-(%s)' % xo, 'oled_front_y'), ('-(%s)' % xo, '%s - oled_wall_t' % yr), (xo, '%s - oled_wall_t' % yr), (xo, 'oled_front_y'),
+            (xi, 'oled_front_y'), (xi, yr), ('-(%s)' % xi, yr), ('-(%s)' % xi, 'oled_front_y')]      # one U-shaped outline, front open
+    poly_pts(sk, des, rows)
+    h = 'top_z - roof_t + 0.2 mm - oled_wall_z0'
+    return ext(top_comp, main_profile(sk), h, FE.JoinFeatureOperation, 'OLED walls', start='oled_wall_z0', target=body)
+
+
 SCREW_PARAMS = [
     ('mh1_x', '-12.5 mm', 'PCB mounting hole 1 x (front left)'), ('mh1_y', '25.4 mm', 'PCB mounting hole 1 y'),
     ('mh2_x', '12.4 mm', 'PCB mounting hole 2 x (front right)'), ('mh2_y', '25.2 mm', 'PCB mounting hole 2 y'),
@@ -1062,7 +1087,29 @@ def build_stick_cap(root, des, top_comp):
         ci.chamferEdgeSets.addEqualDistanceChamferEdgeSet(col, VI('peg_lead'), False)
         comp.features.chamferFeatures.add(ci).name = nm
     build_cap_button_notch(cc, des)
+    build_stick_ring_relief(top_comp, des)
     return cc
+
+
+STICK_RELIEF_PARAMS = [
+    ('bump_rr_r', '13 mm', 'Thumbstick dome relief: radius of the cut inside the shell glue seat ring (the ring is 12.4 mm inside; pegs pockets start at 13.2)'),
+    ('bump_rr_z0', '12 mm', 'Thumbstick dome relief: bottom of the cut (below the ring)'),
+    ('bump_rr_top', 'top_z - 0.8 mm', 'Thumbstick dome relief: top of the cut. 0.8 mm of seat ring is left under the cap (glue face stays top_z)'),
+]
+
+
+def build_stick_ring_relief(top_comp, des):
+    """The stick's dome swings into the underside of the glue seat ring when the stick tilts (print test: the opening 'rubs'). Cut the
+    inside of the ring back to bump_rr_r, keeping the top 0.8 mm of the ring as the glue seat (r 13 to 16)."""
+    up = des.userParameters
+    for n, e, c in STICK_RELIEF_PARAMS:
+        pr = up.itemByName(n)
+        if pr is None: up.add(n, VI(e), 'mm', c)
+        else: pr.expression = e
+    body = top_comp.bRepBodies.item(0)
+    sk = top_comp.sketches.add(top_comp.xYConstructionPlane); sk.name = 'Stick ring relief'
+    circle_on_stick(sk, des, '2 * bump_rr_r')
+    ext(top_comp, main_profile(sk), 'bump_rr_top - bump_rr_z0', FE.CutFeatureOperation, 'Stick ring relief', start='bump_rr_z0', target=body)
 
 
 def build_cap_button_notch(cc, des):
@@ -1070,7 +1117,7 @@ def build_cap_button_notch(cc, des):
     add_fb_params(des)
     up = des.userParameters
     if up.itemByName('cap_btn_clr') is None:
-        up.add('cap_btn_clr', VI('0.2 mm'), 'mm', 'Extra clearance per side around a face button where it passes through the stick cap skirt')
+        up.add('cap_btn_clr', VI('0.25 mm'), 'mm', 'Extra clearance per side around a face button where it passes through the stick cap skirt (raised from 0.2 when fb_sq_clr dropped 0.05, so the notch size is unchanged)')
     H = adsk.fusion.DimensionOrientations
     sk = cc.sketches.add(cc.xYConstructionPlane); sk.name = 'Cap button notch'
     _, pt = _fb_rsq(sk, des, 0, ev_cm(des, 'mac_cy1'), 'fb_sq + 2 * fb_sq_clr + 2 * cap_btn_clr', 'fb_sq_r + fb_sq_clr + cap_btn_clr')
@@ -1086,7 +1133,7 @@ FB_PARAMS = [
     ('mac_cy1', '-7.32 mm', 'Front macro row centre y (PCB measured)'),
     ('fb_sq', '4.3 mm', 'Face button cap / stem side (rounded square; the square stops the button turning, the number stays whole)'),
     ('fb_sq_r', '0.6 mm', 'Corner radius of the rounded square stem (a larger radius lets the button twist more)'),
-    ('fb_sq_clr', '0.15 mm', 'Clearance per side of the square stem in its bore (about +-5.5 degrees of rotation with a 0.6 mm corner radius)'),
+    ('fb_sq_clr', '0.1 mm', 'Clearance per side of the square stem in its bore (was 0.15 mm: buttons rattled; about +-4 degrees of rotation with a 0.6 mm corner radius)'),
     ('fb_flange_d', '6 mm', 'Button flange diameter'),
     ('fb_flange_t0', '1 mm', 'Original flange thickness (sets the unshortened tube bottom)'),
     ('fb_flange_t', 'fb_tube_bot - fb_free - fb_switch_top', 'Button flange thickness: grows up to fb_free below the shortened tube'),
@@ -1470,12 +1517,12 @@ def _face_y(body, y_cm, ny):
 
 
 def build_bumper_relief(comp, des, body):
-    """Trim the top of the inner flange to bm_fl_ztop so it clears the PCB's front edge as the bumper is pressed in.
-    Stops 0.2 mm short of the flange's outer face so the stem root is untouched."""
+    """Cut the top of the inner flange off above bm_fl_ztop so it clears the PCB's front edge as the bumper is pressed in. Cut through the
+    full flange thickness (a 0.2 mm skin was left before: too thin to print); the stem built afterwards keeps its root."""
     add_bm_params(des)
     sk = comp.sketches.add(comp.xZConstructionPlane); sk.name = 'Bumper flange relief'
     rect4(sk, des, 'bm_x - (bm_fl_w + 2 mm) / 2', 'bm_x + (bm_fl_w + 2 mm) / 2', '-(bm_z + bm_fl_ztop + 3 mm)', '-(bm_z + bm_fl_ztop)')
-    ext(comp, main_profile(sk), 'bm_fl_t - 0.1 mm', FE.CutFeatureOperation, 'Bumper flange relief',
+    ext(comp, main_profile(sk), 'bm_fl_t + 0.1 mm', FE.CutFeatureOperation, 'Bumper flange relief',
         start='bm_fl_in_y - 0.1 mm', target=body)
 
 
@@ -1508,7 +1555,7 @@ BAY_PARAMS = [
     ('bay_floor_z', '-(bot_d - floor_t)', 'cavity floor'),
     ('bay_clip_y', 'y_rear_out + wall + 0.1 mm', 'rear contact clip back face'),
     ('bay_clip_t', '1.45 mm', 'rear clip thickness'),
-    ('bay_front_y', 'bay_clip_y + 55.9 mm', 'front contact block plate front face (v1.1 spacing)'),
+    ('bay_front_y', 'bay_clip_y + 58.4 mm', 'front contact block plate front face (v1.1 spacing 55.9 plus 2.5 mm so the negative contact spring is not over-compressed)'),
     ('bay_blk_t', '1.45 mm', 'front block plate thickness'),
     ('bay_pin_tip_y', 'bay_front_y - 2.29 mm', 'front contact pin tip'),
     ('bay_cell_y0', 'bay_clip_y + bay_clip_t + 0.8 mm', 'cell rear end'),
@@ -2094,10 +2141,11 @@ def build_trigger_slot(c, des, body):
 
 # ---------------------------------------------------------------- pivot trigger (v2) ----
 # v1.1 blade side profile (y, z mm) shifted to the v2 pivot (26.3, -3.0): rest pose, before the nose / tip trims
+# rear edge: the 0.23 mm ledge/step that used to sit between (23.85,-6.04) and (15.33,-8.73) was removed so the rear is one straight face
 TRIG_PROFILE = [(21.6, -17.06), (23.19, -18.4), (24.4, -19.12), (25.54, -19.36), (25.91, -19.24), (26.15, -18.95), (26.19, -18.29),
                 (25.68, -15.85), (25.51, -14.25), (25.52, -12.55), (25.84, -10.27), (26.46, -8.14), (27.27, -6.38), (27.7, -6.3),
                 (28.9, -4.6), (28.9, -4.4), (29.3, -4.4), (29.3, -3.4), (28.9, -3.4), (28.9, -3.0), (28.1, -1.1), (26.3, -0.4),
-                (24.5, -1.1), (23.7, -3.0), (23.85, -6.04), (18.5, -7.73), (18.5, -7.5), (16.8, -7.5), (16.8, -8.28), (15.33, -8.73),
+                (24.5, -1.1), (23.7, -3.0), (23.85, -6.04), (15.33, -8.73),
                 (14.45, -9.22), (14.16, -9.55), (14.22, -9.84), (14.49, -10.13), (15.43, -10.4), (16.15, -10.92), (18.26, -13.56)]
 
 TRIG2_PARAMS = [
@@ -2739,7 +2787,7 @@ def build_pt_slot(c, des, body):
 PT_PROFILE = [(21.6, -17.06), (23.19, -18.4), (24.4, -19.12), (25.54, -19.36), (25.91, -19.24), (26.15, -18.95), (26.19, -18.29),
                 (25.68, -15.85), (25.51, -14.25), (25.52, -12.55), (25.84, -10.27), (26.46, -8.14), (27.27, -6.38), (27.7, -6.3),
                 (28.9, -4.6), (28.9, -4.4), (29.3, -4.4), (29.3, -3.4), (28.9, -3.4), (28.9, -3.0), (28.1, -1.1), (26.3, -0.4),
-                (24.5, -1.1), (23.7, -3.0), (23.85, -6.04), (18.5, -7.73), (18.5, -7.5), (16.8, -7.5), (16.8, -8.28), (15.33, -8.73),
+                (24.5, -1.1), (23.7, -3.0), (23.85, -6.04), (15.33, -8.73),
                 (14.45, -9.22), (14.16, -9.55), (14.22, -9.84), (14.49, -10.13), (15.43, -10.4), (16.15, -10.92), (18.26, -13.56)]
 
 PT2_PARAMS = [
@@ -3274,6 +3322,87 @@ def build_trigger_side_fillets(comp, des):
             raise RuntimeError('no side-edge fillet run computes on the face at x=%.1f' % (x * 10))
         feats.append(done)
     return feats
+
+
+# ---------------------------------------------------------------- trigger forward stop (standard trigger)
+# A lug on the trigger's rear face, on the right (+x) side, that sticks out past the blade side (x 7.6) and meets the bottom
+# shell's inner wall (x >= 9.1) when the trigger swings forward, so the rest pose is a hard stop. It sits on the straight rear
+# face between its two end vertices, starting at the lower end, 1.5 mm proud of the face; the inboard end is chamfered 1.5 mm so
+# it ramps out of the blade. Built after the fillets. First contact is about 1.5 deg forward of the rest pose.
+TRIG_STOP_PARAMS = [
+    ('trig_stop_x0', '5.53 mm', 'trigger stop lug inboard end (x); the lug is chamfered here'),
+    ('trig_stop_x1', '10 mm', 'trigger stop lug outboard end (x); meets the bottom shell wall at x 9.1'),
+    ('trig_stop_len', '2.15 mm', 'trigger stop lug length along the rear face, measured up from its lower end'),
+    ('trig_stop_t', '1.5 mm', 'trigger stop lug height above the rear face'),
+    ('trig_stop_ch', '1.5 mm', 'trigger stop lug inboard chamfer'),
+]
+
+
+def add_trig_stop_params(des):
+    up = des.userParameters
+    for n, e, c in TRIG_STOP_PARAMS:
+        if up.itemByName(n) is None:
+            up.add(n, VI(e), 'mm', c)
+
+
+def build_trigger_stop(comp, des):
+    add_trig2_params(des); add_trig_stop_params(des)
+    ev = lambda e: ev_cm(des, e) * 10.0
+    py, pz = ev('trig_piv_y'), ev('trig_piv_z')
+    rest = des.userParameters.itemByName('trig_rest_deg').value
+    def live(p):      # TRIG_PROFILE point -> rest-pose (y, z) in mm, same mapping as build_trigger
+        y, z = py + (p[0] - 26.3), pz + (p[1] + 3.0)
+        return (py + (y - py) * math.cos(rest) - (z - pz) * math.sin(rest), pz + (y - py) * math.sin(rest) + (z - pz) * math.cos(rest))
+    lo = live((15.33, -8.73)); hi = live((23.85, -6.04))
+    n_ = math.hypot(hi[0] - lo[0], hi[1] - lo[1]); u = ((hi[0] - lo[0]) / n_, (hi[1] - lo[1]) / n_); nrm = (-u[1], u[0])
+    L, T = ev('trig_stop_len'), ev('trig_stop_t')
+    P0 = lo; P1 = (lo[0] + u[0] * L, lo[1] + u[1] * L)
+    P2 = (P1[0] + nrm[0] * T, P1[1] + nrm[1] * T); P3 = (P0[0] + nrm[0] * T, P0[1] + nrm[1] * T)
+    rows = []
+    for y, z in (P0, P1, P2, P3):
+        rows.append(('-((trig_piv_z) + (%.3f mm))' % (z - pz), '(trig_piv_y + (%.3f mm))' % (y - py)))      # sketch (x_s, y_s) = (-z, y)
+    sk = comp.sketches.add(comp.yZConstructionPlane); sk.name = 'Trigger stop lug'
+    poly_pts(sk, des, rows)
+    body = comp.bRepBodies.item(0)
+    ext(comp, main_profile(sk), 'trig_stop_x1 - trig_stop_x0', FE.JoinFeatureOperation, 'Trigger stop lug', start='trig_stop_x0', target=body)
+    # chamfer the outer edge at the inboard end
+    x0 = ev('trig_stop_x0')
+    es = adsk.core.ObjectCollection.create()
+    for e in comp.bRepBodies.item(0).edges:
+        a, b = e.startVertex.geometry, e.endVertex.geometry
+        if abs(a.x * 10 - x0) < 0.02 and abs(b.x * 10 - x0) < 0.02 and \
+           {(round(a.y * 10, 1), round(a.z * 10, 1)), (round(b.y * 10, 1), round(b.z * 10, 1))} == {(round(P2[0], 1), round(P2[1], 1)), (round(P3[0], 1), round(P3[1], 1))}:
+            es.add(e)
+    if es.count != 1:
+        raise RuntimeError('trigger stop chamfer edge: found %d' % es.count)
+    ci = comp.features.chamferFeatures.createInput2()
+    ci.chamferEdgeSets.addEqualDistanceChamferEdgeSet(es, VI('trig_stop_ch'), False)
+    f = comp.features.chamferFeatures.add(ci); f.name = 'Trigger stop chamfer'
+    return f
+
+
+# ---------------------------------------------------------------- bottom shell: trigger-side ridge extension + gap fill
+# Two small additions under the seam at the trigger slot's right side: a 0.5 mm extension down the end of the ridge (x 7.9..8.3)
+# and a 0.2 mm plate closing the gap beside it (x 9.3..11.5; the screw column already covers its corner, so a plain rectangle joins).
+RIDGE_FIX_PARAMS = [
+    ('bs_rg_z', '-0.85 mm', 'z of the existing ridge underside that the trigger-side additions hang from'),
+    ('bs_rg_h', '0.5 mm', 'ridge extension height below bs_rg_z (x 7.9..8.3, y 19..23.3)'),
+    ('bs_gp_h', '0.2 mm', 'gap plate thickness below bs_rg_z (x 9.3..11.5, y 19..22.7)'),
+]
+
+
+def build_trigger_ridge_fix(comp, des):
+    up = des.userParameters
+    for n, e, c in RIDGE_FIX_PARAMS:
+        if up.itemByName(n) is None:
+            up.add(n, VI(e), 'mm', c)
+    body = comp.bRepBodies.item(0)
+    sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = 'Trigger ridge extension'
+    rect4(sk, des, '7.9 mm', '8.3 mm', '19 mm', '23.3 mm')
+    ext(comp, main_profile(sk), 'bs_rg_h', FE.JoinFeatureOperation, 'Trigger ridge extension', neg=True, start='bs_rg_z', target=body)
+    sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = 'Trigger gap plate'
+    rect4(sk, des, '9.3 mm', '11.5 mm', '19 mm', '22.7 mm')
+    ext(comp, main_profile(sk), 'bs_gp_h', FE.JoinFeatureOperation, 'Trigger gap plate', neg=True, start='bs_rg_z', target=body)
 
 
 # ---------------------------------------------------------------- 14500 bay ceiling (standard shell only)
