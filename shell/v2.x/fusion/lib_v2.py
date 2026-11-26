@@ -3741,3 +3741,96 @@ def build_bay_wire_notch(c, des, body):
     dm.addDiameterDimension(circ, P3(0.5, cy + 0.5, 0)).parameter.expression = 'bay_wire_hole_d'
     return ext(c, all_profiles(sk), 'bay_wnotch_depth', FE.CutFeatureOperation, 'Bay wire notch', neg=True,
                start='bay_front_y + bay_wnotch_front_off', target=body)
+
+
+# ------------------------------------------------- spring retention (print test 3, 2026-11-26) ----
+# The moving leg lies in a slot in the trigger ear; the wire is only 0.35 mm, so the slot cannot snap-grip it. Instead an offset
+# ledge (lip) roofs one side of the slot: the wire drops in through the open mouth on the other side and the spring's own preload
+# pushes it sideways under the lip, where it cannot lift out. Side n = (-dz, dy) of the S->T leg line; the wire bears on the +n wall
+# (torque toward rest pushes the leg that way), so the lip covers +n and the mouth is on -n.
+LEDGE_PARAMS = [
+    ('%s_ledge_x1', '8.8 mm', 'ledge outer face (x); the shell wall is at x 9.0, so 0.2 mm clear'),
+    ('%s_mouth_w', '0.65 mm', 'ledge mouth / widened channel: how far the open side extends on the -n side of the wire line (wire 0.35 -> 0.3 mm to spare)'),
+    ('%s_ledge_lap', '0.0 mm', 'ledge edge: offset from the wire line toward +n (0 = the lip reaches the wire centre line)'),
+]
+
+
+def add_ledge_params(des, p):
+    up = des.userParameters
+    for n, e, cm in LEDGE_PARAMS:
+        n = n % p
+        pr = up.itemByName(n)
+        if pr is None: up.add(n, VI(e), 'mm', cm)
+        else: pr.expression = e
+
+
+def _ofs_strip_rows(p, a, b, n0, n1, l0=0.0, l1=0.0):
+    """Rows (x_s, y_s) of the strip between offsets n0..n1 (parameter expressions) from segment a->b; points are (dy, dz) rel pivot."""
+    dy_, dz_ = b[0] - a[0], b[1] - a[1]; L = math.hypot(dy_, dz_); dy_, dz_ = dy_ / L, dz_ / L
+    ny, nz = -dz_, dy_
+    p0 = (a[0] - dy_ * l0, a[1] - dz_ * l0); p1 = (b[0] + dy_ * l1, b[1] + dz_ * l1)
+    rows = []
+    for (py_, pz_), nn in ((p0, n0), (p1, n0), (p1, n1), (p0, n1)):
+        rows.append(('-(%s_piv_z + (%.3f mm) + (%.4f) * (%s))' % (p, pz_, nz, nn),
+                     '%s_piv_y + (%.3f mm) + (%.4f) * (%s)' % (p, py_, ny, nn)))
+    return rows
+
+
+def build_leg_ledge(c, des, body, p='trig'):
+    """Offset ledge over the moving-leg slot (p = 'trig' or 'pt'): thicken the ear strip to <p>_ledge_x1, open a mouth on the -n side,
+    and widen the channel under the ledge on the same side so the wire can sit in it before it is pushed under the lip."""
+    add_ledge_params(des, p)
+    S, T = (SPR_S, SPR_T) if p == 'trig' else (PT_SPR_S, PT_SPR_T)
+    rest = des.userParameters.itemByName('%s_rest_deg' % p).value
+    _r = lambda q: (q[0] * math.cos(rest) - q[1] * math.sin(rest), q[0] * math.sin(rest) + q[1] * math.cos(rest))
+    R_S, R_T = _r(S), _r(T)
+    dy_, dz_ = R_T[0] - R_S[0], R_T[1] - R_S[1]; L = math.hypot(dy_, dz_); d = (dy_ / L, dz_ / L)
+    pa = (R_S[0] + d[0] * 2.6, R_S[1] + d[1] * 2.6)
+    pb = (R_S[0] + d[0] * 2.0, R_S[1] + d[1] * 2.0)
+    FEo = FE
+    # 1. ledge block over the leg strip (same footprint as the ear strip, half-width 1.2)
+    sk = c.sketches.add(c.yZConstructionPlane); sk.name = 'Ear ledge'
+    poly_pts(sk, des, _ofs_strip_rows(p, pa, R_T, '-1.2 mm', '1.2 mm', 0, 0))
+    ext(c, all_profiles(sk), '%s_ledge_x1 - %s_ear_x1' % (p, p), FEo.JoinFeatureOperation, 'Ear ledge', start='%s_ear_x1' % p, target=body)
+    # 2. mouth through the ledge on the -n side (edge at the wire line + lap)
+    sk = c.sketches.add(c.yZConstructionPlane); sk.name = 'Ear ledge mouth'
+    poly_pts(sk, des, _ofs_strip_rows(p, pb, R_T, '-%s_mouth_w' % p, '%s_ledge_lap' % p, 0, 0.3))
+    ext(c, all_profiles(sk), '%s_ledge_x1 - %s_ear_x1 + 0.4 mm' % (p, p), FEo.CutFeatureOperation, 'Ear ledge mouth', start='%s_ear_x1 - 0.2 mm' % p, target=body)
+    # 3. channel widened on the -n side, under the ledge (from the blade face outward)
+    sk = c.sketches.add(c.yZConstructionPlane); sk.name = 'Ear channel widen'
+    poly_pts(sk, des, _ofs_strip_rows(p, pb, R_T, '-%s_mouth_w' % p, '-%s_leg_slot' % p, 0, 0.3))
+    ext(c, all_profiles(sk), '%s_ear_x1 - %s_bx1 + 0.4 mm' % (p, p), FEo.CutFeatureOperation, 'Ear channel widen', start='%s_bx1 - 0.2 mm' % p, target=body)
+
+
+# Fixed leg: the leg bears up against the rib underside; an L-shaped catch hangs from the rib on the -x side of the wire and its foot
+# runs under the wire, so the leg cannot drop out while the spring is being fitted (the leg is tucked in from the +x side, over the foot).
+HOOK_PARAMS = [
+    ('%s_hook_y0', '19.6 mm', 'catch hook: rear end (y); the leg tip is at y 18.8'),
+    ('%s_hook_len', '2.8 mm', 'catch hook: length along the leg'),
+    ('%s_hook_wall_x0', '0.8 mm', 'catch hook: wall outer face, distance -x of the fixed leg centre (wall hangs under the 0.4 rib wall)'),
+    ('%s_hook_wall_t', '0.4 mm', 'catch hook: wall thickness (one 0.4 mm perimeter)'),
+    ('%s_hook_foot_x1', '0.15 mm', 'catch hook: foot tip, distance +x of the fixed leg centre (wire radius 0.175, so the foot lies under almost the whole wire)'),
+    ('%s_hook_drop', '0.85 mm', 'catch hook: how far the foot underside hangs below the rib underside'),
+    ('%s_hook_foot_t', '0.4 mm', 'catch hook: foot thickness (gap to the wire bottom is drop - foot_t - 0.3 = 0.15)'),
+]
+
+
+def add_hook_params(des, p):
+    up = des.userParameters
+    for n, e, cm in HOOK_PARAMS:
+        n = n % p
+        pr = up.itemByName(n)
+        if pr is None: up.add(n, VI(e), 'mm', cm)
+        else: pr.expression = e
+
+
+def build_leg_hook(c, des, body, p='trig'):
+    """L-shaped catch under the spring-leg rib (p = 'trig' for BottomShell, 'pt' for BottomShell_Pouch)."""
+    add_hook_params(des, p)
+    X = lambda dx: '%s_fix_x + (%s)' % (p, dx)
+    Z = lambda dz: '-(%s_rib_z0 + (%s))' % (p, dz)           # sketch y = -z on the XZ plane
+    w0 = '-%s_hook_wall_x0' % p; w1 = '-%s_hook_wall_x0 + %s_hook_wall_t' % (p, p); f1 = '%s_hook_foot_x1' % p
+    dr = '-%s_hook_drop' % p; fz = '-%s_hook_drop + %s_hook_foot_t' % (p, p)
+    sk = c.sketches.add(c.xZConstructionPlane); sk.name = 'Spring leg hook'
+    poly_pts(sk, des, [(X(w0), Z('0.2 mm')), (X(w1), Z('0.2 mm')), (X(w1), Z(fz)), (X(f1), Z(fz)), (X(f1), Z(dr)), (X(w0), Z(dr))])
+    return ext(c, all_profiles(sk), '%s_hook_len' % p, FE.JoinFeatureOperation, 'Spring leg hook', start='%s_hook_y0' % p, target=body)
