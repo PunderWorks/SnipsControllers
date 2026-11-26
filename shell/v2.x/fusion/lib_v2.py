@@ -3802,38 +3802,39 @@ def build_leg_ledge(c, des, body, p='trig'):
     ext(c, all_profiles(sk), '%s_ear_x1 - %s_bx1 + 0.4 mm' % (p, p), FEo.CutFeatureOperation, 'Ear channel widen', start='%s_bx1 - 0.2 mm' % p, target=body)
 
 
-# Fixed leg: the leg bears up against the rib underside and ends in a 90 deg tail that drops behind the rib. A shelf under the leg stops it
-# dropping out while the spring is fitted. It rises from the rib pillar's -x face (so the belly-down print has something under it) and its
-# underside slopes at 45 deg, so it prints without supports. The -x side stays open: the leg is tilted in over the shelf tip.
-SHELF_PARAMS = [
-    ('%s_shelf_y0', '19.6 mm', 'leg shelf: rear end (y); the leg tip / tail is at y 18.8, the pillar spans y 19.0 .. 22.7'),
-    ('%s_shelf_len', '2.8 mm', 'leg shelf: length along the leg'),
-    ('%s_shelf_tip', '0.4 mm', 'leg shelf: tip, distance -x of the leg centre (wire radius 0.175 -> the shelf reaches 0.22 mm past the wire edge)'),
-    ('%s_shelf_drop', '0.45 mm', 'leg shelf: top face below the rib underside (wire bottom is 0.35 below it, so 0.1 mm clear)'),
-    ('%s_shelf_t', '0.4 mm', 'leg shelf: thickness at the tip (one 0.4 mm perimeter); the underside then slopes 45 deg down to the pillar'),
+# Fixed leg: the leg bears up against the rib underside and ends in a 90 deg tail that drops behind the rib. The spring is fitted by
+# swinging the legs up on an arc about the coil axis, so nothing may sit under the leg (a shelf there blocks the fit). Instead the
+# rectangular groove in the rib underside becomes a V: open to below, 90 deg included angle (45 deg flanks, self-supporting in the
+# belly-down print). The wire presses up into it, wedges against the flanks and centres itself; the mouth is 0.8 mm (two perimeters).
+VG_PARAMS = [
+    ('%s_vg_half', '0.4 mm', 'V groove: half-width at the rib underside (= depth above it, 90 deg V); the wire (0.35 mm) seats about 0.3 mm up into it'),
+    ('%s_vg_y0', '0.1 mm', 'V groove: starts this far behind the rib rear edge'),
 ]
 
 
-def add_shelf_params(des, p):
+def add_vg_params(des, p):
     up = des.userParameters
-    for n, e, cm in SHELF_PARAMS:
+    for n, e, cm in VG_PARAMS:
         n = n % p
         pr = up.itemByName(n)
         if pr is None: up.add(n, VI(e), 'mm', cm)
         else: pr.expression = e
 
 
-def build_leg_shelf(c, des, body, p='trig'):
-    """45 deg underside shelf under the fixed spring leg (p = 'trig' for BottomShell, 'pt' for BottomShell_Pouch)."""
+def build_leg_vgroove(c, des, body, p='trig'):
+    """Fill the rectangular leg groove above the rib underside, then cut a V in its place (p = 'trig' or 'pt')."""
     add_slot_cap_params(des) if p == 'trig' else add_pt_slot_cap_params(des)
-    add_shelf_params(des, p)
-    xa = '%s_fix_x - %s_shelf_tip' % (p, p)                 # tip
-    xb = '%s_pil_x0 + 0.2 mm' % p                           # buried 0.2 mm in the pillar
-    zt = '%s_rib_z0 - %s_shelf_drop' % (p, p)               # top face
-    zb = '(%s) - %s_shelf_t - ((%s) - (%s))' % (zt, p, xb, xa)   # underside at the pillar (45 deg)
-    sk = c.sketches.add(c.xZConstructionPlane); sk.name = 'Spring leg shelf'
-    poly_pts(sk, des, [(xa, '-(%s)' % zt), (xb, '-(%s)' % zt), (xb, '-(%s)' % zb), (xa, '-(%s - %s_shelf_t)' % (zt, p))])
-    return ext(c, all_profiles(sk), '%s_shelf_len' % p, FE.JoinFeatureOperation, 'Spring leg shelf', start='%s_shelf_y0' % p, target=body)
+    add_vg_params(des, p)
+    L = '%s_rib_y1 - %s_rib_y0 + 2 * %s_vg_y0' % (p, p, p)
+    sk = c.sketches.add(c.xZConstructionPlane); sk.name = 'Spring leg groove fill'
+    rect4(sk, des, '%s_fix_x - %s_groove_w' % (p, p), '%s_fix_x + %s_groove_w' % (p, p), '-(%s_rib_z0 + 0.6 mm)' % p, '-(%s_rib_z0)' % p)
+    ext(c, all_profiles(sk), L, FE.JoinFeatureOperation, 'Spring leg groove fill', start='%s_rib_y0 - %s_vg_y0' % (p, p), target=body)
+    h = '%s_vg_half' % p
+    sk = c.sketches.add(c.xZConstructionPlane); sk.name = 'Spring leg V'
+    poly_pts(sk, des, [('%s_fix_x' % p, '-(%s_rib_z0 + %s)' % (p, h)),
+                       ('%s_fix_x + %s + 0.1 mm' % (p, h), '-(%s_rib_z0 - 0.1 mm)' % p),
+                       ('%s_fix_x - %s - 0.1 mm' % (p, h), '-(%s_rib_z0 - 0.1 mm)' % p)])
+    return ext(c, all_profiles(sk), L, FE.CutFeatureOperation, 'Spring leg V', start='%s_rib_y0 - %s_vg_y0' % (p, p), target=body)
 
 
 # Sliver cleanup at the hook pocket (Jess's hand edit on Trigger: Extrude14/15 + Sketch8/Extrude1 helper body, net effect ported here).
