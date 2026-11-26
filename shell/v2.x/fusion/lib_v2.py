@@ -3802,38 +3802,38 @@ def build_leg_ledge(c, des, body, p='trig'):
     ext(c, all_profiles(sk), '%s_ear_x1 - %s_bx1 + 0.4 mm' % (p, p), FEo.CutFeatureOperation, 'Ear channel widen', start='%s_bx1 - 0.2 mm' % p, target=body)
 
 
-# Fixed leg: the leg bears up against the rib underside; an L-shaped catch hangs from the rib on the -x side of the wire and its foot
-# runs under the wire, so the leg cannot drop out while the spring is being fitted (the leg is tucked in from the +x side, over the foot).
-HOOK_PARAMS = [
-    ('%s_hook_y0', '19.6 mm', 'catch hook: rear end (y); the leg tip is at y 18.8'),
-    ('%s_hook_len', '2.8 mm', 'catch hook: length along the leg'),
-    ('%s_hook_wall_x0', '0.8 mm', 'catch hook: wall outer face, distance -x of the fixed leg centre (wall hangs under the 0.4 rib wall)'),
-    ('%s_hook_wall_t', '0.4 mm', 'catch hook: wall thickness (one 0.4 mm perimeter)'),
-    ('%s_hook_foot_x1', '0.15 mm', 'catch hook: foot tip, distance +x of the fixed leg centre (wire radius 0.175, so the foot lies under almost the whole wire)'),
-    ('%s_hook_drop', '0.85 mm', 'catch hook: how far the foot underside hangs below the rib underside'),
-    ('%s_hook_foot_t', '0.4 mm', 'catch hook: foot thickness (gap to the wire bottom is drop - foot_t - 0.3 = 0.15)'),
+# Fixed leg: the leg bears up against the rib underside and ends in a 90 deg tail that drops behind the rib. A shelf under the leg stops it
+# dropping out while the spring is fitted. It rises from the rib pillar's -x face (so the belly-down print has something under it) and its
+# underside slopes at 45 deg, so it prints without supports. The -x side stays open: the leg is tilted in over the shelf tip.
+SHELF_PARAMS = [
+    ('%s_shelf_y0', '19.6 mm', 'leg shelf: rear end (y); the leg tip / tail is at y 18.8, the pillar spans y 19.0 .. 22.7'),
+    ('%s_shelf_len', '2.8 mm', 'leg shelf: length along the leg'),
+    ('%s_shelf_tip', '0.4 mm', 'leg shelf: tip, distance -x of the leg centre (wire radius 0.175 -> the shelf reaches 0.22 mm past the wire edge)'),
+    ('%s_shelf_drop', '0.45 mm', 'leg shelf: top face below the rib underside (wire bottom is 0.35 below it, so 0.1 mm clear)'),
+    ('%s_shelf_t', '0.4 mm', 'leg shelf: thickness at the tip (one 0.4 mm perimeter); the underside then slopes 45 deg down to the pillar'),
 ]
 
 
-def add_hook_params(des, p):
+def add_shelf_params(des, p):
     up = des.userParameters
-    for n, e, cm in HOOK_PARAMS:
+    for n, e, cm in SHELF_PARAMS:
         n = n % p
         pr = up.itemByName(n)
         if pr is None: up.add(n, VI(e), 'mm', cm)
         else: pr.expression = e
 
 
-def build_leg_hook(c, des, body, p='trig'):
-    """L-shaped catch under the spring-leg rib (p = 'trig' for BottomShell, 'pt' for BottomShell_Pouch)."""
-    add_hook_params(des, p)
-    X = lambda dx: '%s_fix_x + (%s)' % (p, dx)
-    Z = lambda dz: '-(%s_rib_z0 + (%s))' % (p, dz)           # sketch y = -z on the XZ plane
-    w0 = '-%s_hook_wall_x0' % p; w1 = '-%s_hook_wall_x0 + %s_hook_wall_t' % (p, p); f1 = '%s_hook_foot_x1' % p
-    dr = '-%s_hook_drop' % p; fz = '-%s_hook_drop + %s_hook_foot_t' % (p, p)
-    sk = c.sketches.add(c.xZConstructionPlane); sk.name = 'Spring leg hook'
-    poly_pts(sk, des, [(X(w0), Z('0.2 mm')), (X(w1), Z('0.2 mm')), (X(w1), Z(fz)), (X(f1), Z(fz)), (X(f1), Z(dr)), (X(w0), Z(dr))])
-    return ext(c, all_profiles(sk), '%s_hook_len' % p, FE.JoinFeatureOperation, 'Spring leg hook', start='%s_hook_y0' % p, target=body)
+def build_leg_shelf(c, des, body, p='trig'):
+    """45 deg underside shelf under the fixed spring leg (p = 'trig' for BottomShell, 'pt' for BottomShell_Pouch)."""
+    add_slot_cap_params(des) if p == 'trig' else add_pt_slot_cap_params(des)
+    add_shelf_params(des, p)
+    xa = '%s_fix_x - %s_shelf_tip' % (p, p)                 # tip
+    xb = '%s_pil_x0 + 0.2 mm' % p                           # buried 0.2 mm in the pillar
+    zt = '%s_rib_z0 - %s_shelf_drop' % (p, p)               # top face
+    zb = '(%s) - %s_shelf_t - ((%s) - (%s))' % (zt, p, xb, xa)   # underside at the pillar (45 deg)
+    sk = c.sketches.add(c.xZConstructionPlane); sk.name = 'Spring leg shelf'
+    poly_pts(sk, des, [(xa, '-(%s)' % zt), (xb, '-(%s)' % zt), (xb, '-(%s)' % zb), (xa, '-(%s - %s_shelf_t)' % (zt, p))])
+    return ext(c, all_profiles(sk), '%s_shelf_len' % p, FE.JoinFeatureOperation, 'Spring leg shelf', start='%s_shelf_y0' % p, target=body)
 
 
 # Sliver cleanup at the hook pocket (Jess's hand edit on Trigger: Extrude14/15 + Sketch8/Extrude1 helper body, net effect ported here).
