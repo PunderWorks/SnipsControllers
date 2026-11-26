@@ -3708,3 +3708,36 @@ def build_bay_wire_hole(c, des, body):
     dm.addDistanceDimension(sk.originPoint, circ.centerSketchPoint, adsk.fusion.DimensionOrientations.VerticalDimensionOrientation, P3(1.5, cy / 2, 0)).parameter.expression = '-(bay_axis_z)'
     dm.addDiameterDimension(circ, P3(0.5, cy + 0.5, 0)).parameter.expression = 'bay_wire_hole_d'
     ext(c, all_profiles(sk), 'bay_wire_hole_len', FE.CutFeatureOperation, 'Bay wire hole', start='bay_front_y', target=body)
+
+
+# 2. Wire notch through the front bulkhead wall: the wire leaves the hole above and runs up this V-flanked slot, lying inside the wall
+#    thickness (y <= bay_front_y + 1.4) so the trigger lobe (rearmost y 11.78 at full pull) never meets it.
+WIRE_NOTCH_PARAMS = [
+    ('bay_wnotch_front_off', '1.4 mm', 'notch front face: offset from bay_front_y (the bulkhead wall front face)'),
+    ('bay_wnotch_depth', '1.3 mm', 'notch depth, cut rearward from the wall front face'),
+    ('bay_wnotch_top_z', '1.5 mm', 'notch top: depth below the seam (z = -this), open to the top edge'),
+    ('bay_wnotch_hw', '6 mm', 'notch half-width at the top (V flanks widen up to this)'),
+    ('bay_wnotch_fx', '1.735 mm', 'flank start: half-width where the flank leaves the wire hole circle'),
+    ('bay_wnotch_fz', '8.631 mm', 'flank start: depth below the seam (z = -this), on the wire hole circle'),
+]
+
+
+def build_bay_wire_notch(c, des, body):
+    """V-flanked wire slot through the bulkhead wall, from the wire hole up to the seam-side top (Jess's hand cut, ported)."""
+    add_bay_fix_params(des)
+    up = des.userParameters
+    for n, e, cm in WIRE_NOTCH_PARAMS:
+        pr = up.itemByName(n)
+        if pr is None: up.add(n, VI(e), 'mm', cm)
+        else: pr.expression = e
+    sk = c.sketches.add(c.xZConstructionPlane); sk.name = 'Bay wire notch'
+    poly_pts(sk, des, [('-bay_wnotch_fx', 'bay_wnotch_fz'), ('bay_wnotch_fx', 'bay_wnotch_fz'),
+                       ('bay_wnotch_hw', 'bay_wnotch_top_z'), ('-bay_wnotch_hw', 'bay_wnotch_top_z')])
+    cy = ev_cm(des, '-(bay_axis_z)')
+    circ = sk.sketchCurves.sketchCircles.addByCenterRadius(P3(0, cy, 0), ev_cm(des, 'bay_wire_hole_d') / 2)
+    sk.geometricConstraints.addVerticalPoints(sk.originPoint, circ.centerSketchPoint)
+    dm = sk.sketchDimensions
+    dm.addDistanceDimension(sk.originPoint, circ.centerSketchPoint, adsk.fusion.DimensionOrientations.VerticalDimensionOrientation, P3(1.5, cy / 2, 0)).parameter.expression = '-(bay_axis_z)'
+    dm.addDiameterDimension(circ, P3(0.5, cy + 0.5, 0)).parameter.expression = 'bay_wire_hole_d'
+    return ext(c, all_profiles(sk), 'bay_wnotch_depth', FE.CutFeatureOperation, 'Bay wire notch', neg=True,
+               start='bay_front_y + bay_wnotch_front_off', target=body)
