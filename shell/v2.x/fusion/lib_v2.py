@@ -1095,6 +1095,7 @@ STICK_RELIEF_PARAMS = [
     ('bump_rr_r', '13 mm', 'Thumbstick dome relief: radius of the cut inside the shell glue seat ring (the ring is 12.4 mm inside; pegs pockets start at 13.2)'),
     ('bump_rr_z0', '12 mm', 'Thumbstick dome relief: bottom of the cut (below the ring)'),
     ('bump_rr_top', 'top_z - 0.8 mm', 'Thumbstick dome relief: top of the cut. 0.8 mm of seat ring is left under the cap (glue face stays top_z)'),
+    ('bump_rr_ch', '1.2 mm', 'Thumbstick dome relief: 45 deg lead-in chamfer on the ring bottom inner edge'),
 ]
 
 
@@ -1110,6 +1111,14 @@ def build_stick_ring_relief(top_comp, des):
     sk = top_comp.sketches.add(top_comp.xYConstructionPlane); sk.name = 'Stick ring relief'
     circle_on_stick(sk, des, '2 * bump_rr_r')
     ext(top_comp, main_profile(sk), 'bump_rr_top - bump_rr_z0', FE.CutFeatureOperation, 'Stick ring relief', start='bump_rr_z0', target=body)
+    # lead-in on the ring's bottom inner edge (the lowest circle of radius bump_rr_r), so a tilted dome has a flare to swing into
+    rr = ev_cm(des, 'bump_rr_r') * 10
+    cs = [e for e in top_comp.bRepBodies.item(0).edges if e.geometry.objectType == 'adsk::core::Circle3D' and abs(e.geometry.radius * 10 - rr) < 0.02]
+    low = min(cs, key=lambda e: e.geometry.center.z)
+    col = adsk.core.ObjectCollection.create(); col.add(low)
+    ci = top_comp.features.chamferFeatures.createInput2()
+    ci.chamferEdgeSets.addEqualDistanceChamferEdgeSet(col, VI('bump_rr_ch'), False)
+    top_comp.features.chamferFeatures.add(ci).name = 'Stick ring lead-in'
 
 
 def build_cap_button_notch(cc, des):

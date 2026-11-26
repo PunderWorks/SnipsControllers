@@ -175,3 +175,9 @@ Print files regenerated for the new/changed parts only (unchanged print STEPs we
   - Checks: BottomShell_Pouch first touches the lug at the rest pose (0.014 mm3 at 0 deg, clear at -0.5 deg and everything down to -36 deg), so the pouch trigger sits on the stop at rest (the standard trigger has about 1.5 deg of play). Zero interference with TopShell. The only post contact is the pivot at the pull extremes, as on the standard trigger.
   - The pouch blade sketch is not reported as fully constrained after the edit (one line between two fully constrained points); geometry is fully determined.
   - Exports: Trigger_Pouch (STEP, STL, print files, f3d), watertight.
+
+2026-11-25 (evening): thumbstick ring lead-in chamfer
+  - Jess added a 1.2 mm 45 deg chamfer on the inner bottom edge of the stick glue seat ring (the relief wall at r 13, ring bottom z 14.2). Ported into `build_stick_ring_relief` (`bump_rr_ch`, feature 'Stick ring lead-in').
+  - Tilt sweep of ThumbstickKnob_Ref about its pivot (5 deg steps) is identical with and without the chamfer: pivot z 9: TopShell clear to 30 deg, StickCap opening (r 9.6) first touches at 25 deg; pivot z 6: TopShell first touches at 10 deg (the 0.8 mm of ring left under the cap, r 12.45, z 15.4..15.7), StickCap at 15 deg. The chamfer is below the dome (dome starts at z 15.41), so it is harmless but does not change those contacts.
+  - It also opens the inner side of the cap peg pockets slightly at their bottoms (pocket bottom z 14.2, chamfer to r 14.2 there); the pegs still register above that.
+  - TopShell re-exported (STEP, STL, print files, f3d), watertight, one lump.
