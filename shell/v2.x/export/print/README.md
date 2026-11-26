@@ -44,7 +44,7 @@ them) for a 3 x 1 mm strap loop. Slots are narrow and tall with rounded ends, so
 
 ## Trigger notes
 - Both triggers are filleted where a finger touches them: the long edges across the blade (nose, bottom-flat corners, rear corner) at 1.2 mm (`trig_edge_r`, only below `trig_edge_zmax`) and the outline of both side faces along the finger blade, from the rear face near the hub round the bottom and along the nose diagonal, at 1.0 mm (`trig_side_r`). 1.2 mm does not compute on the side outline, because of sliver edges at the ramp teeth and hub; the rest of the outline (ledge, ramp, hub pockets) stays sharp.
-- `Trigger` has a stop lug on the right side of its rear face (`trig_stop_*`, 1.5 mm proud) that meets the BottomShell wall so the trigger cannot swing forward past rest (first contact 1-2 deg forward of rest). Trigger_Pouch has no stop yet.
+- `Trigger` has a stop lug on the right side of its rear face (`trig_stop_*`, 1.5 mm proud) that meets the BottomShell wall so the trigger cannot swing forward past rest (first contact 1-2 deg forward of rest). Trigger_Pouch has the same stop lug (it rests against the pouch shell wall at the rest pose).
 - Both triggers rest 8 deg forward of vertical (`trig_rest_deg`, `pt_rest_deg`); the pull is 28 deg beyond that.
   `Trigger` was regenerated for this, so reprint it if you printed an earlier one.
 - The trigger spring slots (ear slot and fixed-leg groove) are 0.8 mm wide, parametric (`trig_leg_slot`, `trig_groove_w`). Print a short test coupon first if the 0.35 mm wire does not slide in, and ream rather than change the model.

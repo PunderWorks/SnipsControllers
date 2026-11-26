@@ -3335,43 +3335,47 @@ def build_trigger_side_fillets(comp, des):
 # face between its two end vertices, starting at the lower end, 1.5 mm proud of the face; the inboard end is chamfered 1.5 mm so
 # it ramps out of the blade. Built after the fillets. First contact is about 1.5 deg forward of the rest pose.
 TRIG_STOP_PARAMS = [
-    ('trig_stop_x0', '5.53 mm', 'trigger stop lug inboard end (x); the lug is chamfered here'),
-    ('trig_stop_x1', '10 mm', 'trigger stop lug outboard end (x); meets the bottom shell wall at x 9.1'),
-    ('trig_stop_len', '2.15 mm', 'trigger stop lug length along the rear face, measured up from its lower end'),
-    ('trig_stop_t', '1.5 mm', 'trigger stop lug height above the rear face'),
-    ('trig_stop_ch', '1.5 mm', 'trigger stop lug inboard chamfer'),
+    ('x0', '5.53 mm', 'trigger stop lug inboard end (x); the lug is chamfered here'),
+    ('x1', '10 mm', 'trigger stop lug outboard end (x); meets the bottom shell wall at x 9.1'),
+    ('len', '2.15 mm', 'trigger stop lug length along the rear face, measured up from its lower end'),
+    ('t', '1.5 mm', 'trigger stop lug height above the rear face'),
+    ('ch', '1.5 mm', 'trigger stop lug inboard chamfer'),
+    ('off', '0 mm', 'trigger stop lug start, measured up the rear face from its lower end'),
 ]
 
 
-def add_trig_stop_params(des):
+def add_trig_stop_params(des, p='trig'):
     up = des.userParameters
     for n, e, c in TRIG_STOP_PARAMS:
-        if up.itemByName(n) is None:
-            up.add(n, VI(e), 'mm', c)
+        if up.itemByName('%s_stop_%s' % (p, n)) is None:
+            up.add('%s_stop_%s' % (p, n), VI(e), 'mm', c)
 
 
-def build_trigger_stop(comp, des):
-    add_trig2_params(des); add_trig_stop_params(des)
+def build_trigger_stop(comp, des, p='trig'):
+    """Forward stop lug on the right side of the trigger's straight rear face (p = 'trig' standard, 'pt' pouch). The lug starts
+    `<p>_stop_off` up the face from its lower end vertex (the standard trigger's is (15.33, -8.73), the pouch trigger's is where the
+    belly chamfer meets the face, (16.8, -8.28); both in profile coordinates)."""
+    (add_trig2_params if p == 'trig' else add_pt2_params)(des); add_trig_stop_params(des, p)
     ev = lambda e: ev_cm(des, e) * 10.0
-    py, pz = ev('trig_piv_y'), ev('trig_piv_z')
-    rest = des.userParameters.itemByName('trig_rest_deg').value
-    def live(p):      # TRIG_PROFILE point -> rest-pose (y, z) in mm, same mapping as build_trigger
-        y, z = py + (p[0] - 26.3), pz + (p[1] + 3.0)
+    py, pz = ev('%s_piv_y' % p), ev('%s_piv_z' % p)
+    rest = des.userParameters.itemByName('%s_rest_deg' % p).value
+    def live(q):      # profile point -> rest-pose (y, z) in mm, same mapping as the blade build
+        y, z = py + (q[0] - 26.3), pz + (q[1] + 3.0)
         return (py + (y - py) * math.cos(rest) - (z - pz) * math.sin(rest), pz + (y - py) * math.sin(rest) + (z - pz) * math.cos(rest))
-    lo = live((15.33, -8.73)); hi = live((23.85, -6.04))
+    lo = live((15.33, -8.73) if p == 'trig' else (16.8, -8.28)); hi = live((23.85, -6.04))
     n_ = math.hypot(hi[0] - lo[0], hi[1] - lo[1]); u = ((hi[0] - lo[0]) / n_, (hi[1] - lo[1]) / n_); nrm = (-u[1], u[0])
-    L, T = ev('trig_stop_len'), ev('trig_stop_t')
-    P0 = lo; P1 = (lo[0] + u[0] * L, lo[1] + u[1] * L)
+    L, T, O = ev('%s_stop_len' % p), ev('%s_stop_t' % p), ev('%s_stop_off' % p)
+    P0 = (lo[0] + u[0] * O, lo[1] + u[1] * O); P1 = (P0[0] + u[0] * L, P0[1] + u[1] * L)
     P2 = (P1[0] + nrm[0] * T, P1[1] + nrm[1] * T); P3 = (P0[0] + nrm[0] * T, P0[1] + nrm[1] * T)
     rows = []
     for y, z in (P0, P1, P2, P3):
-        rows.append(('-((trig_piv_z) + (%.3f mm))' % (z - pz), '(trig_piv_y + (%.3f mm))' % (y - py)))      # sketch (x_s, y_s) = (-z, y)
+        rows.append(('-((%s_piv_z) + (%.3f mm))' % (p, z - pz), '(%s_piv_y + (%.3f mm))' % (p, y - py)))      # sketch (x_s, y_s) = (-z, y)
     sk = comp.sketches.add(comp.yZConstructionPlane); sk.name = 'Trigger stop lug'
     poly_pts(sk, des, rows)
     body = comp.bRepBodies.item(0)
-    ext(comp, main_profile(sk), 'trig_stop_x1 - trig_stop_x0', FE.JoinFeatureOperation, 'Trigger stop lug', start='trig_stop_x0', target=body)
+    ext(comp, main_profile(sk), '%s_stop_x1 - %s_stop_x0' % (p, p), FE.JoinFeatureOperation, 'Trigger stop lug', start='%s_stop_x0' % p, target=body)
     # chamfer the outer edge at the inboard end
-    x0 = ev('trig_stop_x0')
+    x0 = ev('%s_stop_x0' % p)
     es = adsk.core.ObjectCollection.create()
     for e in comp.bRepBodies.item(0).edges:
         a, b = e.startVertex.geometry, e.endVertex.geometry
@@ -3379,9 +3383,11 @@ def build_trigger_stop(comp, des):
            {(round(a.y * 10, 1), round(a.z * 10, 1)), (round(b.y * 10, 1), round(b.z * 10, 1))} == {(round(P2[0], 1), round(P2[1], 1)), (round(P3[0], 1), round(P3[1], 1))}:
             es.add(e)
     if es.count != 1:
-        raise RuntimeError('trigger stop chamfer edge: found %d' % es.count)
+        cand = [((round(e.startVertex.geometry.y * 10, 2), round(e.startVertex.geometry.z * 10, 2)), (round(e.endVertex.geometry.y * 10, 2), round(e.endVertex.geometry.z * 10, 2)))
+                for e in comp.bRepBodies.item(0).edges if abs(e.startVertex.geometry.x * 10 - x0) < 0.02 and abs(e.endVertex.geometry.x * 10 - x0) < 0.02]
+        raise RuntimeError('trigger stop chamfer edge: found %d; wanted %s, %s; edges at x0: %s' % (es.count, P2, P3, cand))
     ci = comp.features.chamferFeatures.createInput2()
-    ci.chamferEdgeSets.addEqualDistanceChamferEdgeSet(es, VI('trig_stop_ch'), False)
+    ci.chamferEdgeSets.addEqualDistanceChamferEdgeSet(es, VI('%s_stop_ch' % p), False)
     f = comp.features.chamferFeatures.add(ci); f.name = 'Trigger stop chamfer'
     return f
 
