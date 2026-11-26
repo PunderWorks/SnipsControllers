@@ -3860,7 +3860,14 @@ def build_ear_backing(c, des, body, p='pt'):
     add_pt_spring_params(des) if p == 'pt' else add_spring_params(des)
     up = des.userParameters
     pr = up.itemByName('%s_ear_back_t' % p)
-    if pr is None: up.add('%s_ear_back_t' % p, VI('1 mm'), 'mm', 'ear backing plate thickness (into the blade from its right face)')
+    if pr is None: up.add('%s_ear_back_t' % p, VI('2 mm' if p == 'pt' else '1 mm'), 'mm', 'ear backing plate thickness (into the blade from its right face)')
     sk = c.sketches.add(c.yZConstructionPlane); sk.name = 'Ear backing'
     poly_pts(sk, des, [('%.3f mm' % -z, '%.3f mm' % y) for y, z in EAR_BACKING])
     return ext(c, all_profiles(sk), '%s_ear_back_t' % p, FE.JoinFeatureOperation, 'Ear backing', neg=True, start='%s_bx1' % p, target=body)
+
+
+# Hand edits made in Fusion after the scripted features above (not scriptable from the API read-back; kept here so a rebuild knows to redo them).
+# Trigger (standard), at the end of the timeline: Extrude14/15 (ear region, to-entity extents), Extrude16 (1 mm, backing), Chamfer2, Extrude17 (1 mm), Chamfer3
+#   -> 0.25 mm printability chamfer on the backing plate edge (face x 6.60..6.85, y 19.02..20.83, z -7.28..-5.99), plus the extra 1 mm backing/ear extrudes.
+# Trigger_Pouch: Ear backing is 2 mm (pt_ear_back_t, now the default for p='pt'), Chamfer4, Extrude20/21 (hook pocket cleared through the ear to match Trigger).
+# Rebuild order: scripted features first, then redo these by hand and compare Trigger vs Trigger_Pouch.

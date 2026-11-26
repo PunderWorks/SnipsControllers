@@ -210,3 +210,8 @@ Print files regenerated for the new/changed parts only (unchanged print STEPs we
   - Jess's hand edit on Trigger (Sketch9 + Extrude16, after redoing the earlier Sketch8/Extrude1 helper): the spring ear overhangs the blade's straight rear edge, so its inner side was unsupported and snapped off. A 1 mm backing plate (x 6.6 .. 7.6, into the blade from its right face; hexagon y 19.0..23.3, z -8.08..-5.37, 4.35 mm3) fills the gap behind it. Ported as `build_ear_backing(comp, des, body, 'pt')` (param `pt_ear_back_t`) and applied to Trigger_Pouch (+5.0 mm3; the pouch blade outline differs slightly, so more of the plate is new material). The hidden root helper body Body1 is the same shape.
   - Lesson: the pouch variant of her edits was missing, not lost; edits made while a long script was running can also be overwritten, so no scripted timeline rolling while she edits.
   - Exports: Trigger, Trigger_Pouch (STEP, STL, print files), watertight, one lump; f3d refreshed.
+
+2026-11-26 (latest): trigger printability finish, both variants
+  - Jess's hand edits: Trigger gets Chamfer2 (0.25 mm on the backing plate edge), Extrude17 and Chamfer3; Trigger_Pouch gets a 2 mm backing (was 1 mm), Chamfer4, and Extrude20/21 so the spring hook pocket is cut through the ear to match Trigger. Both triggers now have the same backing, chamfer and cuts.
+  - Script lib: `pt_ear_back_t` defaults to 2 mm for the pouch; the hand-edited features are listed in a comment at the end of lib_v2.py (they are hand-drawn sketches, not scripted).
+  - Exports: Trigger (1737.8 mm3), Trigger_Pouch (1077.8 mm3): STEP, STL, print files, watertight, one lump; f3d refreshed. All other print files restored to the committed versions.
