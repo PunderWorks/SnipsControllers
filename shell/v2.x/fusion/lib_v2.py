@@ -3834,3 +3834,16 @@ def build_leg_hook(c, des, body, p='trig'):
     sk = c.sketches.add(c.xZConstructionPlane); sk.name = 'Spring leg hook'
     poly_pts(sk, des, [(X(w0), Z('0.2 mm')), (X(w1), Z('0.2 mm')), (X(w1), Z(fz)), (X(f1), Z(fz)), (X(f1), Z(dr)), (X(w0), Z(dr))])
     return ext(c, all_profiles(sk), '%s_hook_len' % p, FE.JoinFeatureOperation, 'Spring leg hook', start='%s_hook_y0' % p, target=body)
+
+
+# Sliver cleanup at the hook pocket (Jess's hand edit on Trigger: Extrude14/15 + Sketch8/Extrude1 helper body, net effect ported here).
+# The leg-slot strip and the hook-slot strip leave a 0.19 x 0.7 mm slanted sliver of ear beside the hook tip that is attached by
+# almost nothing and snaps off; it is cut away (ear faces x 7.6 .. ear_x1). (y, z) mm, world frame at the rest pose.
+EAR_SLIVER = [(19.52, -6.75), (19.63, -6.91), (20.22, -6.53), (20.11, -6.37)]
+
+
+def build_ear_sliver_cut(c, des, body, p='pt'):
+    add_pt_spring_params(des) if p == 'pt' else add_spring_params(des)
+    sk = c.sketches.add(c.yZConstructionPlane); sk.name = 'Ear sliver'
+    poly_pts(sk, des, [('%.2f mm' % -z, '%.2f mm' % y) for y, z in EAR_SLIVER])
+    return ext(c, all_profiles(sk), '%s_ear_x1 - %s_bx1' % (p, p), FE.CutFeatureOperation, 'Ear sliver cut', start='%s_bx1' % p, target=body)
