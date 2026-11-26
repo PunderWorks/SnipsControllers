@@ -24,6 +24,9 @@ Standard build: `BottomShell` + `Trigger` + `BatteryPanel` (14500 cell). Pouch b
 pouch cell, no BatteryPanel). TopShell, buttons, Bumper and TriggerPost are shared. Overall size: 35.0 x 80.65 mm,
 33.70 mm tall (standard) vs 30.32 mm (pouch), measured flat top surface to flat bottom.
 
+## OLED walls (TopShell)
+Three walls (left, right, rear; front open) hang from the roof around the seated OLED PCB, 1.2 mm thick with 0.2 mm clearance (`oled_wall_t`, `oled_wall_clr`), from the PCB underside up into the roof. The module slides in from the front below the walls, then lifts into them; the tape pads hold it up.
+
 ## Wrist strap anchor
 `BottomShell` and `BottomShell_Pouch` each have two vertical 1.5 x 3.4 mm slots through the rear-left corner (2.2 mm bar between
 them) for a 3 x 1 mm strap loop. Slots are narrow and tall with rounded ends, so they print without supports. Parameters:
@@ -35,12 +38,13 @@ them) for a 3 x 1 mm strap loop. Slots are narrow and tall with rounded ends, so
 - Engraved + / - at the two ends of both ledges (`pol_*` parameters, 0.6 mm deep). The ledge faces down onto supports when printed belly down, so
   only the simple + and - marks go there; the text did not print cleanly. The cell note ("LI-ION" right, "14500" left) and a second set of + / - are
   engraved in the inner (cell side) face of `BatteryPanel`, which prints face up (`pp_*` parameters, 0.5 mm deep, reading rear to front).
-- The negative end continues the same round ceiling to the front contact holder (no flat roof; the bore bridges the same ~10.6 mm as the rest of the ceiling). The battery opening and `BatteryPanel` are ~6.5 mm longer than before so the cell drops straight out; the panel's hook tabs go under two pads beside the contact holder.
+- The negative end continues the same round ceiling to the front contact holder (no flat roof; the bore bridges the same ~10.6 mm as the rest of the ceiling). The battery opening and `BatteryPanel` are ~6.5 mm longer than before so the cell drops straight out; the panel's hook tabs go under two pads beside the contact holder. The front contact holder sits 2.5 mm further forward than the first prints (`bay_front_y`), so the cell has room and the rear contact spring is not over-compressed.
 
 - Contact pockets have crush ribs (0.05 mm interference per side, `bay_ret_*`), a lead-in chamfer and wire relief steps in the cheek tops. Test-print the pocket first; if a contact is too tight or loose change `bay_ret_rib_int` rather than the clearance.
 
 ## Trigger notes
 - Both triggers are filleted where a finger touches them: the long edges across the blade (nose, bottom-flat corners, rear corner) at 1.2 mm (`trig_edge_r`, only below `trig_edge_zmax`) and the outline of both side faces along the finger blade, from the rear face near the hub round the bottom and along the nose diagonal, at 1.0 mm (`trig_side_r`). 1.2 mm does not compute on the side outline, because of sliver edges at the ramp teeth and hub; the rest of the outline (ledge, ramp, hub pockets) stays sharp.
+- `Trigger` has a stop lug on the right side of its rear face (`trig_stop_*`, 1.5 mm proud) that meets the BottomShell wall so the trigger cannot swing forward past rest (first contact 1-2 deg forward of rest). Trigger_Pouch has the same stop lug (it rests against the pouch shell wall at the rest pose).
 - Both triggers rest 8 deg forward of vertical (`trig_rest_deg`, `pt_rest_deg`); the pull is 28 deg beyond that.
   `Trigger` was regenerated for this, so reprint it if you printed an earlier one.
 - The trigger spring slots (ear slot and fixed-leg groove) are 0.8 mm wide, parametric (`trig_leg_slot`, `trig_groove_w`). Print a short test coupon first if the 0.35 mm wire does not slide in, and ream rather than change the model.
