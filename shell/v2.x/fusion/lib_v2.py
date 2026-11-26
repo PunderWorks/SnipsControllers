@@ -3848,3 +3848,19 @@ def build_ear_sliver_cut(c, des, body, p='pt'):
     sk = c.sketches.add(c.yZConstructionPlane); sk.name = 'Ear sliver'
     poly_pts(sk, des, [('%.2f mm' % -z, '%.2f mm' % y) for y, z in EAR_SLIVER])
     return ext(c, all_profiles(sk), '%s_ear_x1 - %s_bx1' % (p, p), FE.CutFeatureOperation, 'Ear sliver cut', start='%s_bx1' % p, target=body)
+
+
+# Backing plate behind the spring ear (Jess's hand edit on Trigger: Sketch8/Extrude1 helper body, then Sketch9/Extrude16). The ear
+# overhangs the blade's straight rear edge, so its inner side hung unsupported and snapped off. A 1 mm plate on the blade's right face
+# (x 6.6 .. 7.6, i.e. into the blade) fills the gap behind it. Outline (y, z) mm, world frame at the rest pose.
+EAR_BACKING = [(21.130, -6.655), (23.110, -5.372), (23.291, -6.321), (19.671, -8.082), (19.018, -7.071), (20.698, -5.986)]
+
+
+def build_ear_backing(c, des, body, p='pt'):
+    add_pt_spring_params(des) if p == 'pt' else add_spring_params(des)
+    up = des.userParameters
+    pr = up.itemByName('%s_ear_back_t' % p)
+    if pr is None: up.add('%s_ear_back_t' % p, VI('1 mm'), 'mm', 'ear backing plate thickness (into the blade from its right face)')
+    sk = c.sketches.add(c.yZConstructionPlane); sk.name = 'Ear backing'
+    poly_pts(sk, des, [('%.3f mm' % -z, '%.3f mm' % y) for y, z in EAR_BACKING])
+    return ext(c, all_profiles(sk), '%s_ear_back_t' % p, FE.JoinFeatureOperation, 'Ear backing', neg=True, start='%s_bx1' % p, target=body)
