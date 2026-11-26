@@ -3708,3 +3708,166 @@ def build_bay_wire_hole(c, des, body):
     dm.addDistanceDimension(sk.originPoint, circ.centerSketchPoint, adsk.fusion.DimensionOrientations.VerticalDimensionOrientation, P3(1.5, cy / 2, 0)).parameter.expression = '-(bay_axis_z)'
     dm.addDiameterDimension(circ, P3(0.5, cy + 0.5, 0)).parameter.expression = 'bay_wire_hole_d'
     ext(c, all_profiles(sk), 'bay_wire_hole_len', FE.CutFeatureOperation, 'Bay wire hole', start='bay_front_y', target=body)
+
+
+# 2. Wire notch through the front bulkhead wall: the wire leaves the hole above and runs up this V-flanked slot, lying inside the wall
+#    thickness (y <= bay_front_y + 1.4) so the trigger lobe (rearmost y 11.78 at full pull) never meets it.
+WIRE_NOTCH_PARAMS = [
+    ('bay_wnotch_front_off', '1.4 mm', 'notch front face: offset from bay_front_y (the bulkhead wall front face)'),
+    ('bay_wnotch_depth', '1.3 mm', 'notch depth, cut rearward from the wall front face'),
+    ('bay_wnotch_top_z', '1.5 mm', 'notch top: depth below the seam (z = -this), open to the top edge'),
+    ('bay_wnotch_hw', '6 mm', 'notch half-width at the top (V flanks widen up to this)'),
+    ('bay_wnotch_fx', '1.735 mm', 'flank start: half-width where the flank leaves the wire hole circle'),
+    ('bay_wnotch_fz', '8.631 mm', 'flank start: depth below the seam (z = -this), on the wire hole circle'),
+]
+
+
+def build_bay_wire_notch(c, des, body):
+    """V-flanked wire slot through the bulkhead wall, from the wire hole up to the seam-side top (Jess's hand cut, ported)."""
+    add_bay_fix_params(des)
+    up = des.userParameters
+    for n, e, cm in WIRE_NOTCH_PARAMS:
+        pr = up.itemByName(n)
+        if pr is None: up.add(n, VI(e), 'mm', cm)
+        else: pr.expression = e
+    sk = c.sketches.add(c.xZConstructionPlane); sk.name = 'Bay wire notch'
+    poly_pts(sk, des, [('-bay_wnotch_fx', 'bay_wnotch_fz'), ('bay_wnotch_fx', 'bay_wnotch_fz'),
+                       ('bay_wnotch_hw', 'bay_wnotch_top_z'), ('-bay_wnotch_hw', 'bay_wnotch_top_z')])
+    cy = ev_cm(des, '-(bay_axis_z)')
+    circ = sk.sketchCurves.sketchCircles.addByCenterRadius(P3(0, cy, 0), ev_cm(des, 'bay_wire_hole_d') / 2)
+    sk.geometricConstraints.addVerticalPoints(sk.originPoint, circ.centerSketchPoint)
+    dm = sk.sketchDimensions
+    dm.addDistanceDimension(sk.originPoint, circ.centerSketchPoint, adsk.fusion.DimensionOrientations.VerticalDimensionOrientation, P3(1.5, cy / 2, 0)).parameter.expression = '-(bay_axis_z)'
+    dm.addDiameterDimension(circ, P3(0.5, cy + 0.5, 0)).parameter.expression = 'bay_wire_hole_d'
+    return ext(c, all_profiles(sk), 'bay_wnotch_depth', FE.CutFeatureOperation, 'Bay wire notch', neg=True,
+               start='bay_front_y + bay_wnotch_front_off', target=body)
+
+
+# ------------------------------------------------- spring retention (print test 3, 2026-11-26) ----
+# The moving leg lies in a slot in the trigger ear; the wire is only 0.35 mm, so the slot cannot snap-grip it. Instead an offset
+# ledge (lip) roofs one side of the slot: the wire drops in through the open mouth on the other side and the spring's own preload
+# pushes it sideways under the lip, where it cannot lift out. Side n = (-dz, dy) of the S->T leg line; the wire bears on the +n wall
+# (torque toward rest pushes the leg that way), so the lip covers +n and the mouth is on -n.
+LEDGE_PARAMS = [
+    ('%s_ledge_x1', '8.8 mm', 'ledge outer face (x); the shell wall is at x 9.0, so 0.2 mm clear'),
+    ('%s_mouth_w', '0.65 mm', 'ledge mouth / widened channel: how far the open side extends on the -n side of the wire line (wire 0.35 -> 0.3 mm to spare)'),
+    ('%s_ledge_lap', '0.0 mm', 'ledge edge: offset from the wire line toward +n (0 = the lip reaches the wire centre line)'),
+]
+
+
+def add_ledge_params(des, p):
+    up = des.userParameters
+    for n, e, cm in LEDGE_PARAMS:
+        n = n % p
+        pr = up.itemByName(n)
+        if pr is None: up.add(n, VI(e), 'mm', cm)
+        else: pr.expression = e
+
+
+def _ofs_strip_rows(p, a, b, n0, n1, l0=0.0, l1=0.0):
+    """Rows (x_s, y_s) of the strip between offsets n0..n1 (parameter expressions) from segment a->b; points are (dy, dz) rel pivot."""
+    dy_, dz_ = b[0] - a[0], b[1] - a[1]; L = math.hypot(dy_, dz_); dy_, dz_ = dy_ / L, dz_ / L
+    ny, nz = -dz_, dy_
+    p0 = (a[0] - dy_ * l0, a[1] - dz_ * l0); p1 = (b[0] + dy_ * l1, b[1] + dz_ * l1)
+    rows = []
+    for (py_, pz_), nn in ((p0, n0), (p1, n0), (p1, n1), (p0, n1)):
+        rows.append(('-(%s_piv_z + (%.3f mm) + (%.4f) * (%s))' % (p, pz_, nz, nn),
+                     '%s_piv_y + (%.3f mm) + (%.4f) * (%s)' % (p, py_, ny, nn)))
+    return rows
+
+
+def build_leg_ledge(c, des, body, p='trig'):
+    """Offset ledge over the moving-leg slot (p = 'trig' or 'pt'): thicken the ear strip to <p>_ledge_x1, open a mouth on the -n side,
+    and widen the channel under the ledge on the same side so the wire can sit in it before it is pushed under the lip."""
+    add_ledge_params(des, p)
+    S, T = (SPR_S, SPR_T) if p == 'trig' else (PT_SPR_S, PT_SPR_T)
+    rest = des.userParameters.itemByName('%s_rest_deg' % p).value
+    _r = lambda q: (q[0] * math.cos(rest) - q[1] * math.sin(rest), q[0] * math.sin(rest) + q[1] * math.cos(rest))
+    R_S, R_T = _r(S), _r(T)
+    dy_, dz_ = R_T[0] - R_S[0], R_T[1] - R_S[1]; L = math.hypot(dy_, dz_); d = (dy_ / L, dz_ / L)
+    pa = (R_S[0] + d[0] * 2.6, R_S[1] + d[1] * 2.6)
+    pb = (R_S[0] + d[0] * 2.0, R_S[1] + d[1] * 2.0)
+    FEo = FE
+    # 1. ledge block over the leg strip (same footprint as the ear strip, half-width 1.2)
+    sk = c.sketches.add(c.yZConstructionPlane); sk.name = 'Ear ledge'
+    poly_pts(sk, des, _ofs_strip_rows(p, pa, R_T, '-1.2 mm', '1.2 mm', 0, 0))
+    ext(c, all_profiles(sk), '%s_ledge_x1 - %s_ear_x1' % (p, p), FEo.JoinFeatureOperation, 'Ear ledge', start='%s_ear_x1' % p, target=body)
+    # 2. mouth through the ledge on the -n side (edge at the wire line + lap)
+    sk = c.sketches.add(c.yZConstructionPlane); sk.name = 'Ear ledge mouth'
+    poly_pts(sk, des, _ofs_strip_rows(p, pb, R_T, '-%s_mouth_w' % p, '%s_ledge_lap' % p, 0, 0.3))
+    ext(c, all_profiles(sk), '%s_ledge_x1 - %s_ear_x1 + 0.4 mm' % (p, p), FEo.CutFeatureOperation, 'Ear ledge mouth', start='%s_ear_x1 - 0.2 mm' % p, target=body)
+    # 3. channel widened on the -n side, under the ledge (from the blade face outward)
+    sk = c.sketches.add(c.yZConstructionPlane); sk.name = 'Ear channel widen'
+    poly_pts(sk, des, _ofs_strip_rows(p, pb, R_T, '-%s_mouth_w' % p, '-%s_leg_slot' % p, 0, 0.3))
+    ext(c, all_profiles(sk), '%s_ear_x1 - %s_bx1 + 0.4 mm' % (p, p), FEo.CutFeatureOperation, 'Ear channel widen', start='%s_bx1 - 0.2 mm' % p, target=body)
+
+
+# Fixed leg: the leg bears up against the rib underside and ends in a 90 deg tail that drops behind the rib. The spring is fitted by
+# swinging the legs up on an arc about the coil axis, so nothing may sit under the leg (a shelf there blocks the fit). Instead the
+# rectangular groove in the rib underside becomes a V: open to below, 90 deg included angle (45 deg flanks, self-supporting in the
+# belly-down print). The wire presses up into it, wedges against the flanks and centres itself; the mouth is 0.8 mm (two perimeters).
+VG_PARAMS = [
+    ('%s_vg_half', '0.4 mm', 'V groove: half-width at the rib underside (= depth above it, 90 deg V); the wire (0.35 mm) seats about 0.3 mm up into it'),
+    ('%s_vg_y0', '0.1 mm', 'V groove: starts this far behind the rib rear edge'),
+]
+
+
+def add_vg_params(des, p):
+    up = des.userParameters
+    for n, e, cm in VG_PARAMS:
+        n = n % p
+        pr = up.itemByName(n)
+        if pr is None: up.add(n, VI(e), 'mm', cm)
+        else: pr.expression = e
+
+
+def build_leg_vgroove(c, des, body, p='trig'):
+    """Fill the rectangular leg groove above the rib underside, then cut a V in its place (p = 'trig' or 'pt')."""
+    add_slot_cap_params(des) if p == 'trig' else add_pt_slot_cap_params(des)
+    add_vg_params(des, p)
+    L = '%s_rib_y1 - %s_rib_y0 + 2 * %s_vg_y0' % (p, p, p)
+    sk = c.sketches.add(c.xZConstructionPlane); sk.name = 'Spring leg groove fill'
+    rect4(sk, des, '%s_fix_x - %s_groove_w' % (p, p), '%s_fix_x + %s_groove_w' % (p, p), '-(%s_rib_z0 + 0.6 mm)' % p, '-(%s_rib_z0)' % p)
+    ext(c, all_profiles(sk), L, FE.JoinFeatureOperation, 'Spring leg groove fill', start='%s_rib_y0 - %s_vg_y0' % (p, p), target=body)
+    h = '%s_vg_half' % p
+    sk = c.sketches.add(c.xZConstructionPlane); sk.name = 'Spring leg V'
+    poly_pts(sk, des, [('%s_fix_x' % p, '-(%s_rib_z0 + %s)' % (p, h)),
+                       ('%s_fix_x + %s + 0.1 mm' % (p, h), '-(%s_rib_z0 - 0.1 mm)' % p),
+                       ('%s_fix_x - %s - 0.1 mm' % (p, h), '-(%s_rib_z0 - 0.1 mm)' % p)])
+    return ext(c, all_profiles(sk), L, FE.CutFeatureOperation, 'Spring leg V', start='%s_rib_y0 - %s_vg_y0' % (p, p), target=body)
+
+
+# Sliver cleanup at the hook pocket (Jess's hand edit on Trigger: Extrude14/15 + Sketch8/Extrude1 helper body, net effect ported here).
+# The leg-slot strip and the hook-slot strip leave a 0.19 x 0.7 mm slanted sliver of ear beside the hook tip that is attached by
+# almost nothing and snaps off; it is cut away (ear faces x 7.6 .. ear_x1). (y, z) mm, world frame at the rest pose.
+EAR_SLIVER = [(19.52, -6.75), (19.63, -6.91), (20.22, -6.53), (20.11, -6.37)]
+
+
+def build_ear_sliver_cut(c, des, body, p='pt'):
+    add_pt_spring_params(des) if p == 'pt' else add_spring_params(des)
+    sk = c.sketches.add(c.yZConstructionPlane); sk.name = 'Ear sliver'
+    poly_pts(sk, des, [('%.2f mm' % -z, '%.2f mm' % y) for y, z in EAR_SLIVER])
+    return ext(c, all_profiles(sk), '%s_ear_x1 - %s_bx1' % (p, p), FE.CutFeatureOperation, 'Ear sliver cut', start='%s_bx1' % p, target=body)
+
+
+# Backing plate behind the spring ear (Jess's hand edit on Trigger: Sketch8/Extrude1 helper body, then Sketch9/Extrude16). The ear
+# overhangs the blade's straight rear edge, so its inner side hung unsupported and snapped off. A 1 mm plate on the blade's right face
+# (x 6.6 .. 7.6, i.e. into the blade) fills the gap behind it. Outline (y, z) mm, world frame at the rest pose.
+EAR_BACKING = [(21.130, -6.655), (23.110, -5.372), (23.291, -6.321), (19.671, -8.082), (19.018, -7.071), (20.698, -5.986)]
+
+
+def build_ear_backing(c, des, body, p='pt'):
+    add_pt_spring_params(des) if p == 'pt' else add_spring_params(des)
+    up = des.userParameters
+    pr = up.itemByName('%s_ear_back_t' % p)
+    if pr is None: up.add('%s_ear_back_t' % p, VI('2 mm' if p == 'pt' else '1 mm'), 'mm', 'ear backing plate thickness (into the blade from its right face)')
+    sk = c.sketches.add(c.yZConstructionPlane); sk.name = 'Ear backing'
+    poly_pts(sk, des, [('%.3f mm' % -z, '%.3f mm' % y) for y, z in EAR_BACKING])
+    return ext(c, all_profiles(sk), '%s_ear_back_t' % p, FE.JoinFeatureOperation, 'Ear backing', neg=True, start='%s_bx1' % p, target=body)
+
+
+# Hand edits made in Fusion after the scripted features above (not scriptable from the API read-back; kept here so a rebuild knows to redo them).
+# Trigger (standard), at the end of the timeline: Extrude14/15 (ear region, to-entity extents), Extrude16 (1 mm, backing), Chamfer2, Extrude17 (1 mm), Chamfer3
+#   -> 0.25 mm printability chamfer on the backing plate edge (face x 6.60..6.85, y 19.02..20.83, z -7.28..-5.99), plus the extra 1 mm backing/ear extrudes.
+# Trigger_Pouch: Ear backing is 2 mm (pt_ear_back_t, now the default for p='pt'), Chamfer4, Extrude20/21 (hook pocket cleared through the ear to match Trigger).
+# Rebuild order: scripted features first, then redo these by hand and compare Trigger vs Trigger_Pouch.
