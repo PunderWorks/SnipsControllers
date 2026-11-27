@@ -1457,7 +1457,11 @@ BUMP2_PARAMS = [
     ('bm_pk_clr', '0.2 mm', 'Flange pocket clearance per side'),
     ('bm_pk_axial', '0.15 mm', 'Free travel between flange outer face and pocket floor'),
     ('bm_stem_w', '18 mm', 'Stem width (x)'),
-    ('bm_stem_h', '4.4 mm', 'Stem height (z)'),
+    ('bm_stem_zb', '-0.7 mm', 'Stem bottom z (raised so the stem clears the trigger hub: hub r 2.6 about the pivot, now 2 mm forward of the flange)'),
+    ('bm_stem_top', '2.2 mm', 'Stem top z'),
+    ('bm_stem_h', 'bm_stem_top - bm_stem_zb', 'Stem height (z); the stem is centred on bm_stem_zc, not on bm_z'),
+    ('bm_stem_zc', '(bm_stem_top + bm_stem_zb) / 2', 'Stem / slot centre z'),
+    ('bm_fl_nz', '-0.4 mm', 'Flange notch top z: below this the flange is cut away between bm_col_nx0 and bm_col_nx1 (clears the trigger hub top, 0.2 mm)'),
     ('bm_stem_r', '1 mm', 'Stem corner radius'),
     ('bm_hole_clr', '0.2 mm', 'Slot clearance per side'),
     ('bm_cap_w', '24 mm', 'Cap width (x)'),
@@ -1485,9 +1489,9 @@ def add_bm_params(des):
             up.add(n, VI(e), 'mm', c)
 
 
-def rrect(sk, des, w, h, r):
-    """Rounded rectangle centred (bm_x, bm_z) on an XZ-plane sketch (sketch y = -z); fully constrained."""
-    rect = rect4(sk, des, 'bm_x - (%s) / 2' % w, 'bm_x + (%s) / 2' % w, '-(bm_z + (%s) / 2)' % h, '-(bm_z - (%s) / 2)' % h)
+def rrect(sk, des, w, h, r, zc='bm_z'):
+    """Rounded rectangle centred (bm_x, zc) on an XZ-plane sketch (sketch y = -z); fully constrained."""
+    rect = rect4(sk, des, 'bm_x - (%s) / 2' % w, 'bm_x + (%s) / 2' % w, '-(%s + (%s) / 2)' % (zc, h), '-(%s - (%s) / 2)' % (zc, h))
     lines = [rect.item(i) for i in range(4)]
     def horiz(l): return abs(l.startSketchPoint.geometry.y - l.endSketchPoint.geometry.y) < 1e-9
     hs = [l for l in lines if horiz(l)]; vs = [l for l in lines if not horiz(l)]
@@ -1511,7 +1515,7 @@ def build_bumper_cuts(comp, des, key, target):
     ext(comp, main_profile(sk), 'bm_pk_floor_y - (bm_fl_in_y - 0.05 mm)', FE.CutFeatureOperation, 'Bumper pocket %s' % k,
         start='bm_fl_in_y - 0.05 mm', target=target)
     sk = comp.sketches.add(comp.xZConstructionPlane); sk.name = 'Bumper slot %s' % k
-    rrect(sk, des, 'bm_stem_w + 2 * bm_hole_clr', 'bm_stem_h + 2 * bm_hole_clr', 'bm_stem_r + bm_hole_clr')
+    rrect(sk, des, 'bm_stem_w + 2 * bm_hole_clr', 'bm_stem_h + 2 * bm_hole_clr', 'bm_stem_r + bm_hole_clr', zc='bm_stem_zc')
     ext(comp, main_profile(sk), 'bm_wall_out_y + 0.5 mm - (bm_pk_floor_y - 0.1 mm)', FE.CutFeatureOperation, 'Bumper slot %s' % k,
         start='bm_pk_floor_y - 0.1 mm', target=target)
 
@@ -1535,6 +1539,16 @@ def build_bumper_relief(comp, des, body):
         start='bm_fl_in_y - 0.1 mm', target=body)
 
 
+def build_bumper_flange_notch(comp, des, body):
+    """Flange: cut the middle below bm_fl_nz away (x bm_col_nx0..bm_col_nx1, the trigger blade / hub width plus clearance) so the hub, now
+    forward of the switch, passes under the flange. Leaves a top bar and two legs that still ride in the collar. Built before the stem."""
+    add_collar_params(des)
+    sk = comp.sketches.add(comp.xZConstructionPlane); sk.name = 'Bumper flange notch'
+    rect4(sk, des, 'bm_col_nx0', 'bm_col_nx1', '-(bm_fl_nz) + 0.0 mm', '8 mm')
+    return ext(comp, main_profile(sk), 'bm_fl_t + 0.2 mm', FE.CutFeatureOperation, 'Bumper flange notch',
+               start='bm_fl_in_y - 0.1 mm', target=body)
+
+
 def build_bumper(root, des):
     """Printed bumper: inner flange, stem through the slot, wide cap outside the front wall, straddling the seam."""
     add_bm_params(des)
@@ -1544,8 +1558,9 @@ def build_bumper(root, des):
     f = ext(comp, main_profile(sk), 'bm_fl_t', FE.NewBodyFeatureOperation, 'Bumper flange', start='bm_fl_in_y')
     body = f.bodies.item(0); body.name = 'Bumper'
     build_bumper_relief(comp, des, body)
+    build_bumper_flange_notch(comp, des, body)
     sk = comp.sketches.add(comp.xZConstructionPlane); sk.name = 'Bumper stem'
-    rrect(sk, des, 'bm_stem_w', 'bm_stem_h', 'bm_stem_r')
+    rrect(sk, des, 'bm_stem_w', 'bm_stem_h', 'bm_stem_r', zc='bm_stem_zc')
     ext(comp, main_profile(sk), 'bm_cap_in_y + 0.2 mm - (bm_fl_out_y - 0.2 mm)', FE.JoinFeatureOperation, 'Bumper stem',
         start='bm_fl_out_y - 0.2 mm', target=body)
     sk = comp.sketches.add(comp.xZConstructionPlane); sk.name = 'Bumper cap'
@@ -2029,13 +2044,13 @@ def build_bay_seal(c, des, body):
 
 
 TRIG_PARAMS = [
-    ('trig_sc_y0', '9.1 mm', 'scoop curve fit point 0 (y) - Jess drawn curve, at the belly'),
+    ('trig_sc_y0', '11.1 mm', 'scoop curve fit point 0 (y) - Jess drawn curve, at the belly'),
     ('trig_sc_z0', '-bot_d', 'scoop curve fit point 0 (z) = belly'),
-    ('trig_sc_y1', '16.16 mm', 'scoop curve fit point 1 (y)'),
+    ('trig_sc_y1', '18.16 mm', 'scoop curve fit point 1 (y)'),
     ('trig_sc_z1', '-12.99 mm', 'scoop curve fit point 1 (z)'),
-    ('trig_sc_y2', '23.77 mm', 'scoop curve fit point 2 (y)'),
+    ('trig_sc_y2', '25.77 mm', 'scoop curve fit point 2 (y)'),
     ('trig_sc_z2', '-7.76 mm', 'scoop curve fit point 2 (z)'),
-    ('trig_sc_y3', '30.3 mm', 'scoop curve fit point 3 (y) - ends in the front wall'),
+    ('trig_sc_y3', '32.2 mm', 'scoop curve fit point 3 (y) - ends in the front wall'),
     ('trig_sc_z3', '-5.31 mm', 'scoop curve fit point 3 (z)'),
     ('trig_floor_t', '2.2 mm', 'ramp floor thickness, normal to the scoop curve'),
     ('trig_ramp_y', 'y_front_out - wall', 'ramp floor stops at the front wall inner face'),
@@ -2126,7 +2141,7 @@ TRIG_SLOT_PARAMS = [
     ('trig_x0', '-9.45 mm', 'trigger body left edge (x)'),
     ('trig_x1', '8.7 mm', 'trigger body right edge (x)'),
     ('trig_clr', '0.4 mm', 'trigger side clearance in the slot'),
-    ('trig_slot_y0', '11.65 mm', 'trigger slot rear edge (full-pull lobe tip 12.4 mm less clearance)'),
+    ('trig_slot_y0', '13.65 mm', 'trigger slot rear edge (full-pull lobe tip 12.4 mm less clearance)'),
     ('trig_slot_ztop', '2.5 mm', 'slot cut top, past the shell top so no ceiling lip is left'),
 ]
 
@@ -2163,7 +2178,7 @@ TRIG_PROFILE = [(21.6, -17.06), (23.19, -18.4), (24.4, -19.12), (25.54, -19.36),
                 (14.45, -9.22), (14.16, -9.55), (14.22, -9.84), (14.49, -10.13), (15.43, -10.4), (16.15, -10.92), (18.26, -13.56)]
 
 TRIG2_PARAMS = [
-    ('trig_piv_y', '25.3 mm', 'trigger pivot axis y (axis runs along x); 1.0 mm behind the v1.1-derived 26.3 so the hub rim (r 2.6) clears the front wall / bumper at every pull angle'),
+    ('trig_piv_y', '27.3 mm', 'trigger pivot axis y (axis runs along x); 1.0 mm behind the v1.1-derived 26.3 so the hub rim (r 2.6) clears the front wall / bumper at every pull angle'),
     ('trig_piv_z', '-3.0 mm', 'trigger pivot axis z'),
     ('trig_rest_deg', '8 deg', 'rest pose is rotated this far forward of the original rest pose (more finger stroke); the pull end stays where it was'),
     ('trig_pull_deg', '28 deg + trig_rest_deg', 'total trigger rotation from rest to full pull (28 deg plus the forward rest offset)'),
@@ -2384,7 +2399,7 @@ SPRING_PARAMS = [
     ('trig_rib_x0', '8.1 mm', 'fixed leg rib: left edge'),
     ('trig_rib_x1', '11.5 mm', 'fixed leg rib: right edge (anchors into the right screw column)'),
     ('trig_rib_y0', 'trig_fix_y1 + 0.2 mm', 'fixed leg rib: rear edge'),
-    ('trig_rib_y1', '23.3 mm', 'fixed leg rib: front edge'),
+    ('trig_rib_y1', '25.3 mm', 'fixed leg rib: front edge'),
     ('trig_rib_z0', 'trig_fix_z + 0.15 mm', 'fixed leg rib: underside, bears on the wire top'),
     ('trig_rib_top', 'pcb_bot_z', 'fixed leg rib: top (PCB underside)'),
 ]
@@ -2517,7 +2532,7 @@ SLOT_CAP_PARAMS = [
     ('trig_rib_x0', '7.9 mm', 'fixed leg rib: left edge (leaves a 0.4 mm wall beside the 0.8 groove)'),
     ('trig_pil_x0', '9.3 mm', 'rib pillar: left edge (0.2 mm clear of the groove / wire)'),
     ('trig_pil_x1', 'trig_rib_x1', 'rib pillar: right edge'),
-    ('trig_pil_y1', '22.7 mm', 'rib pillar: front edge (keeps 0.3 mm clear of the right screw head well)'),
+    ('trig_pil_y1', '24.7 mm', 'rib pillar: front edge (keeps 0.3 mm clear of the right screw head well)'),
     ('trig_pil_zb0', '-9.6 mm', 'rib pillar bottom z at y = trig_rib_y0 (buried 1.3 mm in the ramp floor)'),
     ('trig_pil_zb1', '-7.1 mm', 'rib pillar bottom z at y = trig_pil_y1 (buried 1.3 mm in the ramp floor)'),
 ]
@@ -2669,15 +2684,15 @@ def build_pouch_bumper(comp, des, body):
 # Pouch differences: scoop starts at y 14.4 on the shallower belly, side clearance 0.3, slot rear = cell stop front face,
 # rear lobe trimmed (pt_lobe_ymin) so its sweep clears the stop.
 PT_PARAMS = [
-    ('pt_sc_y0', '14.55 mm', 'scoop curve fit point 0 (y): where the standard scoop curve crosses the shallower pouch belly'),
+    ('pt_sc_y0', '16.55 mm', 'scoop curve fit point 0 (y): where the standard scoop curve crosses the shallower pouch belly'),
     ('pt_sc_z0', '-pouch_bot_d', 'scoop curve fit point 0 (z) = pouch belly'),
-    ('pt_sc_y1', '15.37 mm', 'scoop curve fit point 1 (y): on the standard curve, keeps the pouch curve identical to it'),
+    ('pt_sc_y1', '17.37 mm', 'scoop curve fit point 1 (y): on the standard curve, keeps the pouch curve identical to it'),
     ('pt_sc_z1', '-13.555 mm', 'scoop curve fit point 1 (z)'),
-    ('pt_sc_y2', '16.16 mm', 'scoop curve fit point 2 (y) (standard point 1)'),
+    ('pt_sc_y2', '18.16 mm', 'scoop curve fit point 2 (y) (standard point 1)'),
     ('pt_sc_z2', '-12.99 mm', 'scoop curve fit point 2 (z)'),
-    ('pt_sc_y3', '23.77 mm', 'scoop curve fit point 3 (y) (standard point 2)'),
+    ('pt_sc_y3', '25.77 mm', 'scoop curve fit point 3 (y) (standard point 2)'),
     ('pt_sc_z3', '-7.76 mm', 'scoop curve fit point 3 (z)'),
-    ('pt_sc_y4', '30.3 mm', 'scoop curve fit point 4 (y) - ends in the front wall (standard point 3)'),
+    ('pt_sc_y4', '32.2 mm', 'scoop curve fit point 4 (y) - ends in the front wall (standard point 3)'),
     ('pt_sc_z4', '-5.31 mm', 'scoop curve fit point 4 (z)'),
     ('pt_floor_t', '2.2 mm', 'ramp floor thickness, normal to the scoop curve'),
     ('pt_ramp_y', 'y_front_out - wall', 'ramp floor stops at the front wall inner face'),
@@ -2805,7 +2820,7 @@ PT_PROFILE = [(21.6, -17.06), (23.19, -18.4), (24.4, -19.12), (25.54, -19.36), (
                 (14.45, -9.22), (14.16, -9.55), (14.22, -9.84), (14.49, -10.13), (15.43, -10.4), (16.15, -10.92), (18.26, -13.56)]
 
 PT2_PARAMS = [
-    ('pt_piv_y', '25.3 mm', 'trigger pivot axis y (axis runs along x); 1.0 mm behind the v1.1-derived 26.3 so the hub rim (r 2.6) clears the front wall / bumper at every pull angle'),
+    ('pt_piv_y', '27.3 mm', 'trigger pivot axis y (axis runs along x); 1.0 mm behind the v1.1-derived 26.3 so the hub rim (r 2.6) clears the front wall / bumper at every pull angle'),
     ('pt_piv_z', '-3.0 mm', 'trigger pivot axis z'),
     ('pt_rest_deg', '8 deg', 'rest pose is rotated this far forward of the standard rest pose (more finger stroke); the pull end stays where it was'),
     ('pt_pull_deg', '28 deg + pt_rest_deg', 'total trigger rotation from rest to full pull (28 deg as the standard trigger, plus the forward rest offset)'),
@@ -2950,7 +2965,7 @@ PT_SPRING_PARAMS = [
     ('pt_rib_x0', '8.1 mm', 'fixed leg rib: left edge'),
     ('pt_rib_x1', '11.5 mm', 'fixed leg rib: right edge (anchors into the right screw column)'),
     ('pt_rib_y0', 'pt_fix_y1 + 0.2 mm', 'fixed leg rib: rear edge'),
-    ('pt_rib_y1', '23.3 mm', 'fixed leg rib: front edge'),
+    ('pt_rib_y1', '25.3 mm', 'fixed leg rib: front edge'),
     ('pt_rib_z0', 'pt_fix_z + 0.15 mm', 'fixed leg rib: underside, bears on the wire top'),
     ('pt_rib_top', 'pcb_bot_z', 'fixed leg rib: top (PCB underside)'),
 ]
@@ -3080,7 +3095,7 @@ PT_SLOT_CAP_PARAMS = [
     ('pt_rib_x0', '7.9 mm', 'fixed leg rib: left edge (leaves a 0.4 mm wall beside the 0.8 groove)'),
     ('pt_pil_x0', '9.3 mm', 'rib pillar: left edge (0.2 mm clear of the groove / wire)'),
     ('pt_pil_x1', 'pt_rib_x1', 'rib pillar: right edge'),
-    ('pt_pil_y1', '22.7 mm', 'rib pillar: front edge (keeps 0.3 mm clear of the right screw head well)'),
+    ('pt_pil_y1', '24.7 mm', 'rib pillar: front edge (keeps 0.3 mm clear of the right screw head well)'),
     ('pt_pil_zb0', '-9.6 mm', 'rib pillar bottom z at y = pt_rib_y0 (buried 1.3 mm in the ramp floor)'),
     ('pt_pil_zb1', '-7.1 mm', 'rib pillar bottom z at y = pt_pil_y1 (buried 1.3 mm in the ramp floor)'),
 ]
@@ -3970,3 +3985,98 @@ def build_bumper_end_fillet(comp, des, name='Button end fillet', r='bm_end_fille
         up.add('bm_end_fillet', VI('1.2 mm'), 'mm', 'bumper button end face edge fillet')
     body = comp.bRepBodies.item(0)
     return fillet_face_edges(comp, _face_y(body, ev_cm(des, "bm_cap_out_y"), 1), r, name)
+
+
+# ---------------------------------------------------------------- bumper collar (item 4: front wall moved 2 mm forward of the switch)
+# The bumper flange stays at the PCB switch (y bm_fl_in_y) while the front wall moved forward by 2 mm, so the old flange pocket
+# in the wall no longer exists. A ring collar behind the wall (pocket outline + bm_col_t all round, split at the seam) keeps the
+# flange guided sideways. The bottom half is notched where the shifted trigger tip passes.
+COLLAR_PARAMS = [
+    ('bm_col_t', '1.2 mm', 'Bumper collar wall thickness around the flange pocket outline'),
+    ('bm_col_gap', '0.1 mm', 'Bumper collar halves stop this far either side of z = bm_z (0.2 mm seam gap)'),
+    ('bm_col_y0', 'bm_fl_in_y - 0.05 mm', 'Bumper collar rear face y (same as the old pocket start)'),
+    ('bm_col_y1', 'bm_wall_in_y + 0.5 mm', 'Bumper collar front face y (buried in the front wall)'),
+    ('bm_col_nx0', '-8.65 mm', 'Bottom collar trigger notch: left edge x (trigger tip is x -8.25..7.6 plus 0.4 mm)'),
+    ('bm_col_nx1', '8.0 mm', 'Bottom collar trigger notch: right edge x'),
+    ('bm_col_nz', '-3.4 mm', 'Bottom collar trigger notch: top z (cuts the collar bar below the flange pocket)'),
+]
+
+
+def add_collar_params(des):
+    add_bm_params(des)
+    up = des.userParameters
+    for n, e, c in COLLAR_PARAMS:
+        if up.itemByName(n) is None:
+            up.add(n, VI(e), 'mm', c)
+
+
+def build_bumper_collar(comp, des, key, target):
+    """Collar ring (half) behind the front wall for the bumper flange. key 'Top' (z >= gap) or 'Bottom' (z <= -gap)."""
+    add_collar_params(des)
+    k = key.lower()
+    sk = comp.sketches.add(comp.xZConstructionPlane); sk.name = 'Bumper collar %s' % k
+    rrect(sk, des, 'bm_fl_w + 2 * bm_pk_clr + 2 * bm_col_t', 'bm_fl_h + 2 * bm_pk_clr + 2 * bm_col_t', 'bm_fl_r + bm_pk_clr + bm_col_t')
+    rrect(sk, des, 'bm_fl_w + 2 * bm_pk_clr', 'bm_fl_h + 2 * bm_pk_clr', 'bm_fl_r + bm_pk_clr')
+    if k == 'top':
+        rect4(sk, des, '-30 mm', '30 mm', '-20 mm', '-bm_col_gap')       # sketch y = -z: z from gap upward
+    else:
+        rect4(sk, des, '-30 mm', '30 mm', 'bm_col_gap', '20 mm')         # z from gap downward
+    ow, oh = [ev_cm(des, e) / 2 for e in ('bm_fl_w + 2 * bm_pk_clr + 2 * bm_col_t', 'bm_fl_h + 2 * bm_pk_clr + 2 * bm_col_t')]
+    iw, ih = [ev_cm(des, e) / 2 for e in ('bm_fl_w + 2 * bm_pk_clr', 'bm_fl_h + 2 * bm_pk_clr')]
+    gap = ev_cm(des, 'bm_col_gap'); eps = 1e-4
+    sel = adsk.core.ObjectCollection.create()
+    for p in sk.profiles:
+        bb = p.boundingBox; cp = p.areaProperties().centroid
+        mx = max(abs(bb.minPoint.x), abs(bb.maxPoint.x)); my = max(abs(bb.minPoint.y), abs(bb.maxPoint.y))
+        side_ok = (cp.y < -gap) if k == 'top' else (cp.y > gap)
+        if side_ok and mx <= ow + eps and my <= oh + eps and not (mx <= iw + eps and my <= ih + eps):
+            sel.add(p)
+    if sel.count != 1:
+        raise RuntimeError('collar profiles selected: %d of %d' % (sel.count, sk.profiles.count))
+    return ext(comp, sel, 'bm_col_y1 - bm_col_y0', FE.JoinFeatureOperation, 'Bumper collar %s' % k, start='bm_col_y0', target=target)
+
+
+def build_bumper_collar_notch(comp, des, target):
+    """Bottom collar: clear the bar under the flange pocket where the (shifted) trigger tip passes."""
+    add_collar_params(des)
+    sk = comp.sketches.add(comp.xZConstructionPlane); sk.name = 'Bumper collar notch'
+    rect4(sk, des, 'bm_col_nx0', 'bm_col_nx1', '-(bm_col_nz) + 0.0 mm', '8 mm')   # z from bm_col_nz down to -8
+    return ext(comp, main_profile(sk), 'bm_wall_in_y - (bm_col_y0 - 0.1 mm)', FE.CutFeatureOperation, 'Bumper collar notch',
+               start='bm_col_y0 - 0.1 mm', target=target)
+
+
+# ---------------------------------------------------------------- pivot column fill (item 4: pivot moved 2 mm forward)
+# The front screw posts reach y 28.8 only at their own x; the pivot sockets (x +-9..11.8) now sit at y 27.3, half outside the posts,
+# and the post lips floated free. Fill the column zone from the slot wall to the side wall, forward to the front wall.
+# Must be built BEFORE the trigger sockets / lips (insert at the timeline marker), which then cut and add into it.
+PIVFILL_PARAMS = [
+    ('pivfill_z0', '-5.5 mm', 'pivot column fill bottom z (buried in the ramp floor)'),
+    ('pivfill_dy', '5 mm', 'pivot column fill starts this far behind the pivot axis (overlaps the screw posts)'),
+]
+
+
+def build_pivot_column_fill(c, des, body, p):
+    """p = 'trig' or 'pt'. Two blocks (left / right of the trigger slot) from the slot wall to the side wall, up to the PCB seat."""
+    up = des.userParameters
+    for n, e, cm in PIVFILL_PARAMS:
+        if up.itemByName(n) is None: up.add(n, VI(e), 'mm', cm)
+    sk = c.sketches.add(c.xYConstructionPlane); sk.name = 'Pivot column fill'
+    y0 = '%s_piv_y - pivfill_dy' % p; y1 = 'y_front_out - wall + 0.5 mm'
+    rect4(sk, des, '%s_x1 + %s_clr' % (p, p), 'shell_w / 2 - wall + 0.2 mm', y0, y1)
+    rect4(sk, des, '-(shell_w / 2 - wall + 0.2 mm)', '%s_x0 - %s_clr' % (p, p), y0, y1)
+    f = ext(c, all_profiles(sk), 'pcb_bot_z - pivfill_z0', FE.JoinFeatureOperation, 'Pivot column fill', start='pivfill_z0', target=body)
+    build_pivot_fill_recut(c, des, body)
+    return f
+
+
+def build_pivot_fill_recut(c, des, body):
+    """The fill refills the front screw head wells and bores: cut them again (same as build_trigger_slot)."""
+    sk = c.sketches.add(c.xYConstructionPlane); sk.name = 'Screw head wells (fill)'
+    circle_at(sk, des, 'mh1_x', 'mh1_y', 'head_well_d')
+    circle_at(sk, des, 'mh2_x', 'mh2_y', 'head_well_d')
+    ext(c, all_profiles(sk), 'bot_d + screw_head_seat_z', FE.CutFeatureOperation, 'Screw head wells (fill)', start='-bot_d', target=body)
+    sk = c.sketches.add(c.xYConstructionPlane); sk.name = 'Screw bores (fill)'
+    circle_at(sk, des, 'mh1_x', 'mh1_y', 'screw_clr_d')
+    circle_at(sk, des, 'mh2_x', 'mh2_y', 'screw_clr_d')
+    ext(c, all_profiles(sk), 'pcb_bot_z - screw_head_seat_z + 0.1 mm', FE.CutFeatureOperation, 'Screw bores (fill)', start='screw_head_seat_z', target=body)
+
