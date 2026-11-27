@@ -124,6 +124,12 @@ void test_down_cycles_through_every_main_menu_item_in_order() {
   menu.onDown();
   TEST_ASSERT_TRUE(MainMenuItem::kButtonTest == menu.selectedMainMenuItem());
   menu.onDown();
+  TEST_ASSERT_TRUE(MainMenuItem::kStickTest == menu.selectedMainMenuItem());
+  menu.onDown();
+  TEST_ASSERT_TRUE(MainMenuItem::kTriggerTest == menu.selectedMainMenuItem());
+  menu.onDown();
+  TEST_ASSERT_TRUE(MainMenuItem::kMotionTest == menu.selectedMainMenuItem());
+  menu.onDown();
   TEST_ASSERT_TRUE(MainMenuItem::kFactoryReset ==
                     menu.selectedMainMenuItem());
   menu.onDown();  // wraps back to the first item
@@ -471,7 +477,7 @@ void test_stick_must_return_to_center_before_firing_again() {
 
   menu.tick(0, 0, 0, 0);    // back near center -- rearms
   menu.tick(0, 0, 0, 75);   // fires once more, one step further up from last
-  TEST_ASSERT_TRUE(MainMenuItem::kButtonTest == menu.selectedMainMenuItem());
+  TEST_ASSERT_TRUE(MainMenuItem::kMotionTest == menu.selectedMainMenuItem());
 }
 
 // Regression: the rolling step's progress only appears if the screen is
@@ -1589,6 +1595,136 @@ void test_render_manage_droids_delete_confirm_shows_name() {
   TEST_ASSERT_EQUAL_STRING("R2-D2", screen.line(1));
 }
 
+// ---- Stick / Trigger / Motion Test ---------------------------------------
+
+namespace {
+ImuSample sampleWithYawRate(float zDps) {
+  ImuSample s;
+  s.accelG[2] = 1.0f;
+  s.gyroDps[2] = zDps;
+  return s;
+}
+}  // namespace
+
+void test_input_test_labels() {
+  TEST_ASSERT_EQUAL_STRING("Stick Test",
+                           mainMenuItemLabel(MainMenuItem::kStickTest));
+  TEST_ASSERT_EQUAL_STRING("Trigger Test",
+                           mainMenuItemLabel(MainMenuItem::kTriggerTest));
+  TEST_ASSERT_EQUAL_STRING("Motion Test",
+                           mainMenuItemLabel(MainMenuItem::kMotionTest));
+}
+
+void test_only_the_input_test_screens_are_live() {
+  TEST_ASSERT_TRUE(isLiveMenuScreen(MenuScreen::kStickTest));
+  TEST_ASSERT_TRUE(isLiveMenuScreen(MenuScreen::kTriggerTest));
+  TEST_ASSERT_TRUE(isLiveMenuScreen(MenuScreen::kMotionTest));
+  TEST_ASSERT_FALSE(isLiveMenuScreen(MenuScreen::kButtonTest));
+  TEST_ASSERT_FALSE(isLiveMenuScreen(MenuScreen::kMainMenu));
+  TEST_ASSERT_FALSE(isLiveMenuScreen(MenuScreen::kInactive));
+}
+
+void test_input_test_screens_open_and_back_out() {
+  const MainMenuItem items[] = {MainMenuItem::kStickTest,
+                                MainMenuItem::kTriggerTest,
+                                MainMenuItem::kMotionTest};
+  const MenuScreen screens[] = {MenuScreen::kStickTest,
+                                MenuScreen::kTriggerTest,
+                                MenuScreen::kMotionTest};
+  for (int i = 0; i < 3; ++i) {
+    MenuController menu;
+    selectMainMenuItem(&menu, items[i]);
+    menu.onEnter(0, 0, 0);
+    TEST_ASSERT_TRUE(screens[i] == menu.currentScreen());
+    menu.onEnter(0, 0, 0);  // Enter doesn't leave
+    TEST_ASSERT_TRUE(screens[i] == menu.currentScreen());
+    menu.onBack();
+    TEST_ASSERT_TRUE(MenuScreen::kMainMenu == menu.currentScreen());
+    TEST_ASSERT_TRUE(items[i] == menu.selectedMainMenuItem());
+  }
+}
+
+void test_tick_records_stick_reading() {
+  MenuController menu;
+  menu.tick(1000, 3000, 12, -34);
+  TEST_ASSERT_EQUAL_INT(1000, menu.stickTestReading().rawX);
+  TEST_ASSERT_EQUAL_INT(3000, menu.stickTestReading().rawY);
+  TEST_ASSERT_EQUAL_INT(12, menu.stickTestReading().xPercent);
+  TEST_ASSERT_EQUAL_INT(-34, menu.stickTestReading().yPercent);
+}
+
+void test_stick_does_not_navigate_on_stick_test() {
+  MenuController menu;
+  selectMainMenuItem(&menu, MainMenuItem::kStickTest);
+  menu.onEnter(0, 0, 0);
+  TEST_ASSERT_FALSE(menu.tick(0, 0, 0, 90));
+  TEST_ASSERT_FALSE(menu.tick(0, 0, 90, 0));
+  TEST_ASSERT_TRUE(MenuScreen::kStickTest == menu.currentScreen());
+  TEST_ASSERT_EQUAL_INT(90, menu.stickTestReading().xPercent);
+}
+
+void test_trigger_reading_is_recorded() {
+  MenuController menu;
+  menu.updateTriggerReading(2345, 63);
+  TEST_ASSERT_EQUAL_INT(2345, menu.triggerTestReading().raw);
+  TEST_ASSERT_EQUAL_INT(63, menu.triggerTestReading().percent);
+}
+
+void test_imu_samples_tracked_only_on_motion_test() {
+  MenuController menu;
+  menu.onImuSample(sampleWithYawRate(0.0f), 0);
+  TEST_ASSERT_FALSE(menu.motionTest().hasSample());
+  selectMainMenuItem(&menu, MainMenuItem::kMotionTest);
+  menu.onEnter(0, 0, 0);
+  menu.onImuSample(sampleWithYawRate(90.0f), 1000);
+  TEST_ASSERT_TRUE(menu.motionTest().hasSample());
+}
+
+void test_entering_and_enter_on_motion_test_reset_it() {
+  MenuController menu;
+  selectMainMenuItem(&menu, MainMenuItem::kMotionTest);
+  menu.onEnter(0, 0, 0);
+  menu.onImuSample(sampleWithYawRate(90.0f), 0);
+  menu.onImuSample(sampleWithYawRate(90.0f), 100);
+  TEST_ASSERT_TRUE(menu.motionTest().yawDeg() > 8.0f);
+  menu.onEnter(0, 0, 0);  // Click = reset
+  TEST_ASSERT_FALSE(menu.motionTest().hasSample());
+  TEST_ASSERT_EQUAL_FLOAT(0.0f, menu.motionTest().yawDeg());
+
+  menu.onImuSample(sampleWithYawRate(90.0f), 200);
+  menu.onImuSample(sampleWithYawRate(90.0f), 300);
+  menu.onBack();
+  menu.onEnter(0, 0, 0);  // reopen Motion Test
+  TEST_ASSERT_TRUE(MenuScreen::kMotionTest == menu.currentScreen());
+  TEST_ASSERT_FALSE(menu.motionTest().hasSample());
+}
+
+void test_render_input_test_screens_from_menu() {
+  MenuController menu;
+  ScreenBuffer screen;
+  selectMainMenuItem(&menu, MainMenuItem::kStickTest);
+  menu.onEnter(0, 0, 0);
+  menu.tick(1234, 2048, -45, 12);
+  renderMenuScreen(menu, &screen);
+  TEST_ASSERT_EQUAL_STRING("Stick Test", screen.line(0));
+  TEST_ASSERT_EQUAL_STRING("X  -45%  raw 1234", screen.line(1));
+
+  menu.onBack();
+  menu.onDown();
+  menu.onEnter(0, 0, 0);
+  menu.updateTriggerReading(2345, 63);
+  renderMenuScreen(menu, &screen);
+  TEST_ASSERT_EQUAL_STRING("Trigger Test", screen.line(0));
+  TEST_ASSERT_EQUAL_STRING("Pull  63%", screen.line(1));
+
+  menu.onBack();
+  menu.onDown();
+  menu.onEnter(0, 0, 0);
+  renderMenuScreen(menu, &screen);
+  TEST_ASSERT_EQUAL_STRING("Motion Test", screen.line(0));
+  TEST_ASSERT_EQUAL_STRING("Waiting for data...", screen.line(1));
+}
+
 int main(int argc, char **argv) {
   UNITY_BEGIN();
   RUN_TEST(test_starts_inactive);
@@ -1706,5 +1842,14 @@ int main(int argc, char **argv) {
   RUN_TEST(test_render_manage_droids_enter_pan_id);
   RUN_TEST(test_render_switch_droid_result_variants);
   RUN_TEST(test_render_manage_droids_delete_confirm_shows_name);
+  RUN_TEST(test_input_test_labels);
+  RUN_TEST(test_only_the_input_test_screens_are_live);
+  RUN_TEST(test_input_test_screens_open_and_back_out);
+  RUN_TEST(test_tick_records_stick_reading);
+  RUN_TEST(test_stick_does_not_navigate_on_stick_test);
+  RUN_TEST(test_trigger_reading_is_recorded);
+  RUN_TEST(test_imu_samples_tracked_only_on_motion_test);
+  RUN_TEST(test_entering_and_enter_on_motion_test_reset_it);
+  RUN_TEST(test_render_input_test_screens_from_menu);
   return UNITY_END();
 }

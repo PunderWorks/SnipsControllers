@@ -17,3 +17,10 @@ void ScreenBuffer::clear() {
 const char *ScreenBuffer::line(size_t index) const {
   return index < kMaxLines ? lines_[index] : "";
 }
+
+bool ScreenBuffer::operator==(const ScreenBuffer &other) const {
+  for (size_t i = 0; i < kMaxLines; ++i) {
+    if (std::strcmp(lines_[i], other.lines_[i]) != 0) return false;
+  }
+  return true;
+}

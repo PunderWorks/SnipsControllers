@@ -23,6 +23,10 @@ class ScreenBuffer {
 
   static size_t lineCount() { return kMaxLines; }
 
+  // Same text on every line.
+  bool operator==(const ScreenBuffer &other) const;
+  bool operator!=(const ScreenBuffer &other) const { return !(*this == other); }
+
  private:
   char lines_[kMaxLines][kMaxLineLength + 1] = {};
 };

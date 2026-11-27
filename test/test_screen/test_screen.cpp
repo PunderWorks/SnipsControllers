@@ -58,6 +58,17 @@ void test_line_out_of_range_returns_empty_string() {
   TEST_ASSERT_EQUAL_STRING("", buffer.line(ScreenBuffer::kMaxLines + 5));
 }
 
+void test_equality_compares_every_line() {
+  ScreenBuffer a, b;
+  TEST_ASSERT_TRUE(a == b);
+  a.setLine(7, "x");
+  TEST_ASSERT_TRUE(a != b);
+  b.setLine(7, "x");
+  TEST_ASSERT_TRUE(a == b);
+  b.setLine(0, "y");
+  TEST_ASSERT_FALSE(a == b);
+}
+
 int main(int argc, char **argv) {
   UNITY_BEGIN();
   RUN_TEST(test_new_buffer_lines_are_empty);
@@ -67,5 +78,6 @@ int main(int argc, char **argv) {
   RUN_TEST(test_set_line_ignores_null_text);
   RUN_TEST(test_clear_resets_all_lines);
   RUN_TEST(test_line_out_of_range_returns_empty_string);
+  RUN_TEST(test_equality_compares_every_line);
   return UNITY_END();
 }

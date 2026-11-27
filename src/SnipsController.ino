@@ -78,6 +78,14 @@ constexpr unsigned long kUplinkSendIntervalMs = 50;
 unsigned long lastDownlinkMs = 0;  // 0 = never received one
 constexpr unsigned long kConnectionTimeoutMs = 5000;
 MenuScreen previousMenuScreen = MenuScreen::kInactive;
+// Stick/Trigger/Motion Test (see isLiveMenuScreen()) redraw on this timer,
+// and only when the text actually changed.
+constexpr unsigned long kLiveScreenRefreshMs = 100;
+unsigned long lastLiveScreenRefreshMs = 0;
+ScreenBuffer lastMenuScreenShown;
+// Motion Test reads the IMU itself while the XBee sleeps (the uplink
+// block, which normally reads it, doesn't run then).
+unsigned long lastMotionTestReadMs = 0;
 MainMenuItem previousMainMenuItem = MainMenuItem::kSwitchDroid;
 // The status screen is re-rendered this often so downlink changes and the
 // e-stop blink show promptly, but a frame only goes over I2C when it
@@ -102,6 +110,11 @@ bool droidConnected(unsigned long now) {
 void showText(const ScreenBuffer &screen) {
   oledDisplay.render(screen);
   statusFrameShown = false;
+}
+
+void showMenuScreen() {
+  renderMenuScreen(menuController, &lastMenuScreenShown);
+  showText(lastMenuScreenShown);
 }
 
 void showBootScreen() {
@@ -155,13 +168,26 @@ void applyPowerState(const PowerState &state) {
   // redraw on wake to be safe.
   if (oledShouldBeOn) {
     if (menuController.currentScreen() != MenuScreen::kInactive) {
-      ScreenBuffer menuScreen;
-      renderMenuScreen(menuController, &menuScreen);
-      showText(menuScreen);
+      showMenuScreen();
     } else {
       showOperatingScreen();
     }
   }
+}
+
+// One IMU sample in the board frame with the gyro bias removed (and
+// learned from). False without the ICM-42670-P or with its gyro off.
+bool readImuSample(ImuSample *out) {
+  uint8_t imuBytes[Icm42670p::kSampleLength];
+  if (!accelerometer.readSample(imuBytes)) return false;
+#if defined(SNIPS_BOARD_V2)
+  *out = imuSampleFromRaw(imuBytes, ImuMountings::kV2);
+#else
+  *out = imuSampleFromRaw(imuBytes, ImuMountings::kV1_2);
+#endif
+  gyroBias.update(*out);
+  gyroBias.remove(out);
+  return true;
 }
 
 // Drives SLEEP_RQ only when the requested state changes. Takes effect
@@ -557,6 +583,7 @@ void loop() {
   const int stickYPercent = AnalogCalibration::calibrateStickAxis(
       rawStickY, calibrationData.stickYMin, calibrationData.stickYCenter,
       calibrationData.stickYMax, calibrationData.stickDeadzonePercent);
+  menuController.updateTriggerReading(rawTrigger, triggerPercent);
 
   bool justPressed[Buttons::kCount] = {};
   for (size_t i = 0; i < Buttons::kCount; ++i) {
@@ -696,11 +723,19 @@ void loop() {
 
   if (menuStateChanged) {
     if (menuController.currentScreen() != MenuScreen::kInactive) {
-      ScreenBuffer menuScreen;
-      renderMenuScreen(menuController, &menuScreen);
-      showText(menuScreen);
+      showMenuScreen();
+      lastLiveScreenRefreshMs = now;
     } else {
       showOperatingScreen();
+    }
+  } else if (isLiveMenuScreen(menuController.currentScreen()) &&
+             now - lastLiveScreenRefreshMs >= kLiveScreenRefreshMs) {
+    lastLiveScreenRefreshMs = now;
+    ScreenBuffer liveScreen;
+    renderMenuScreen(menuController, &liveScreen);
+    if (liveScreen != lastMenuScreenShown) {
+      lastMenuScreenShown = liveScreen;
+      showText(lastMenuScreenShown);
     }
   }
 
@@ -789,11 +824,23 @@ void loop() {
 
   const bool inLowBatteryCountdown = lowBatteryMonitor.isInShutdownCountdown();
   setXbeeSleep(shouldXbeeSleep(currentPowerState, inLowBatteryCountdown));
-  // The gyro only feeds the uplink, so it runs only while uplinks go out
-  // (about 0.4 mA); with it off the IMU is back in the low-power mode
-  // wake-on-motion was tuned in.
-  accelerometer.setGyroEnabled(!xbeeSleepRequested);
+  // The gyro feeds the uplink and the Motion Test screen, so it runs only
+  // while uplinks go out or that screen is open (about 0.4 mA); with it
+  // off the IMU is back in the low-power mode wake-on-motion was tuned in.
+  const bool onMotionTest =
+      menuController.currentScreen() == MenuScreen::kMotionTest;
+  accelerometer.setGyroEnabled(!xbeeSleepRequested || onMotionTest);
   if (xbeeSleepRequested) imuMoving = false;
+  if (onMotionTest && xbeeSleepRequested &&
+      now - lastMotionTestReadMs >= kUplinkSendIntervalMs) {
+    lastMotionTestReadMs = now;
+    ImuSample imu;
+    if (readImuSample(&imu)) {
+      menuController.onImuSample(imu, now);
+      // Moving the controller around is the activity on this screen.
+      imuMoving = imuShowsMotion(imu);
+    }
+  }
 
   // Uplink: sent periodically over the radio, faster than the
   // human-readable Serial telemetry below — this is what Amidala
@@ -833,15 +880,9 @@ void loop() {
 
     // Tilt and rotation for Amidala's bindings (see imu.h). Left at
     // imuFlags 0 on boards without the ICM-42670-P.
-    uint8_t imuBytes[Icm42670p::kSampleLength];
-    if (accelerometer.readSample(imuBytes)) {
-#if defined(SNIPS_BOARD_V2)
-      ImuSample imu = imuSampleFromRaw(imuBytes, ImuMountings::kV2);
-#else
-      ImuSample imu = imuSampleFromRaw(imuBytes, ImuMountings::kV1_2);
-#endif
-      gyroBias.update(imu);
-      gyroBias.remove(&imu);
+    ImuSample imu;
+    if (readImuSample(&imu)) {
+      menuController.onImuSample(imu, now);
       fillUplinkImu(imu, &uplink);
       imuMoving = imuShowsMotion(imu);
       lastImuUplink = uplink;
