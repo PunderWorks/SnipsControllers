@@ -1457,8 +1457,8 @@ BUMP2_PARAMS = [
     ('bm_pk_clr', '0.2 mm', 'Flange pocket clearance per side'),
     ('bm_pk_axial', '0.15 mm', 'Free travel between flange outer face and pocket floor'),
     ('bm_stem_w', '18 mm', 'Stem width (x)'),
-    ('bm_stem_zb', '-1.0 mm', 'Stem bottom z (raised so the stem clears the trigger hub: hub r 2.6 about the pivot, now 2 mm forward of the flange)'),
-    ('bm_stem_top', '2.2 mm', 'Stem top z'),
+    ('bm_stem_zb', '-1.6 mm', 'Stem bottom z (raised so the stem clears the trigger hub: hub r 2.6 about the pivot, now 2 mm forward of the flange)'),
+    ('bm_stem_top', '4.8 mm', 'Stem top z'),
     ('bm_stem_h', 'bm_stem_top - bm_stem_zb', 'Stem height (z); the stem is centred on bm_stem_zc, not on bm_z'),
     ('bm_stem_zc', '(bm_stem_top + bm_stem_zb) / 2', 'Stem / slot centre z'),
     ('bm_fl_nz', '-0.4 mm', 'Flange notch top z: below this the flange is cut away between bm_col_nx0 and bm_col_nx1 (clears the trigger hub top, 0.2 mm)'),
@@ -4042,6 +4042,45 @@ def build_bumper_fill_pocket(comp, des, target):
     sk = comp.sketches.add(comp.xZConstructionPlane); sk.name = 'Bumper fill pocket'
     rect4(sk, des, '-(bm_fl_w / 2 + bm_pk_clr)', 'bm_fl_w / 2 + bm_pk_clr', '-(3 mm)', '-(bm_fl_nz) + bm_pk_clr')   # z from bm_fl_nz - clr up to 3
     return ext(comp, all_profiles(sk), 'bm_wall_in_y - bm_col_y0', FE.CutFeatureOperation, 'Bumper fill pocket', start='bm_col_y0', target=target)
+
+
+# Bumper stem as a tall button: the stem runs from the top shell's lower edge (z -1.8) up to bm_stem_top. The shells get a U shaped
+# cutout open at the seam instead of a closed slot; inside the wall the stem is notched at the bottom so the trigger hub clears it.
+BM_TALL_PARAMS = [
+    ('bm_hubnotch_y1', 'bm_wall_in_y - 0.3 mm', 'Bumper stem hub notch: front end y (behind the wall, the hub reaches y 29.9)'),
+    ('bm_hubnotch_z', '-1.0 mm', 'Bumper stem hub notch: stem bottom z behind the wall (-1.0 clears the hub at every pull angle)'),
+    ('bm_seam_z', '-1.8 mm', 'Top shell lower edge / bottom shell outer skin top'),
+]
+
+
+def build_bumper_slot_u(comp, des, key, target):
+    """U shaped stem cutout through the front wall, open at the seam. 'Top': rounded top, runs below the shell's lower edge.
+    'Bottom': plain rectangle from the seam up through the bottom shell's inner skin."""
+    add_bm_params(des)
+    up = des.userParameters
+    for n, e, c in BM_TALL_PARAMS:
+        if up.itemByName(n) is None: up.add(n, VI(e), 'mm', c)
+    k = key.lower()
+    sk = comp.sketches.add(comp.xZConstructionPlane); sk.name = 'Bumper slot %s u' % k
+    if k == 'top':
+        rrect(sk, des, 'bm_stem_w + 2 * bm_hole_clr', '(bm_stem_top + bm_hole_clr) + 4 mm', 'bm_stem_r + bm_hole_clr',
+              zc='((bm_stem_top + bm_hole_clr) - 4 mm) / 2')
+    else:
+        rect4(sk, des, '-(bm_stem_w / 2 + bm_hole_clr)', 'bm_stem_w / 2 + bm_hole_clr', '-(bm_stem_top + bm_hole_clr)', '-(bm_seam_z)')
+    return ext(comp, main_profile(sk), 'bm_wall_out_y + 0.5 mm - (bm_pk_floor_y - 0.1 mm)', FE.CutFeatureOperation, 'Bumper slot %s u' % k,
+               start='bm_pk_floor_y - 0.1 mm', target=target)
+
+
+def build_bumper_hub_notch(comp, des, body):
+    """Bumper: take the stem's lower edge back to bm_hubnotch_z between the flange and the wall (trigger hub clearance)."""
+    add_bm_params(des)
+    up = des.userParameters
+    for n, e, c in BM_TALL_PARAMS:
+        if up.itemByName(n) is None: up.add(n, VI(e), 'mm', c)
+    sk = comp.sketches.add(comp.xZConstructionPlane); sk.name = 'Bumper hub notch'
+    rect4(sk, des, '-(bm_fl_w / 2 + 1 mm)', 'bm_fl_w / 2 + 1 mm', '-(bm_hubnotch_z)', '6 mm')    # z from bm_hubnotch_z down to -6
+    return ext(comp, main_profile(sk), 'bm_hubnotch_y1 - (bm_fl_out_y - 0.2 mm)', FE.CutFeatureOperation, 'Bumper hub notch',
+               start='bm_fl_out_y - 0.2 mm', target=body)
 
 
 # ---------------------------------------------------------------- pivot column fill (item 4: pivot moved 2 mm forward)

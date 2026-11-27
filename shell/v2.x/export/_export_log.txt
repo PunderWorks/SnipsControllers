@@ -245,3 +245,10 @@ Print files regenerated for the new/changed parts only (unchanged print STEPs we
   - Bumper flange: the notch now spans the full flange width (`bm_col_nx0/nx1` = +-(bm_fl_w/2 + 1)), so there are no legs below z -0.4 (they overlapped the trigger post by 1.16 mm3). Stem bottom `bm_stem_zb` -0.7 -> -1.0 mm (stem 3.2 mm tall, was 2.9). -1.4 was tried: it hits the trigger hub (0.45 mm3 at -12 deg); -1.1 still touches (0.005 mm3 at -8 deg); -1.0 is clear at every 4 deg step 0..-40. More height needs a hub clearance notch or a lower pivot.
   - Checks: Bumper vs TopShell, BottomShell, BottomShell_Pouch, TriggerPost(+Pouch): 0 mm3; Trigger vs Bumper 0 at 0..-40 deg; TriggerPost vs both shells 0.
   - Exports: BottomShell, BottomShell_Pouch, TopShell, Bumper (STEP, STL, print files) watertight, one lump; f3d refreshed.
+
+2026-11-27 (evening, later): tall bumper button with U shaped shell cutouts
+  - Jess: no full wrap-around of the bumper in the top shell, bumper to the shell's lower edge, and about twice as tall. Stem now z -1.6..4.8 (6.4 mm, was 3.2; `bm_stem_zb`, `bm_stem_top`), its lower edge stopping 0.2 mm above the seam (z -1.8).
+  - The closed stem slots in TopShell, BottomShell and BottomShell_Pouch are replaced by U shaped cutouts open at the seam (`build_bumper_slot_u`, 'Bumper slot top u' / 'Bumper slot bottom u'): the top one runs out of the shell's lower edge with a rounded top; the bottom one removes the inner skin from the seam up.
+  - Behind the wall the stem's lower edge is notched back to z -1.0 for the trigger hub (`build_bumper_hub_notch`, `bm_hubnotch_*`); -10.9 mm3.
+  - Checks: Bumper vs every other part in the assembly: 0 mm3; Trigger and Trigger_Pouch vs Bumper 0 at 0..-40 deg in 4 deg steps; both posts 0.
+  - Exports: BottomShell, BottomShell_Pouch, TopShell, Bumper (STEP, STL, print files) watertight, one lump; f3d refreshed.
