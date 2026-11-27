@@ -7,6 +7,7 @@
 #include "accelerometer.h"
 #include "activity.h"
 #include "battery.h"
+#include "battery_level_filter.h"
 #include "buttons.h"
 #include "calibration.h"
 #include "calibration_store.h"
@@ -47,6 +48,7 @@ OledDisplay oledDisplay;
 RgbLed rgbLed;
 StatusLedController statusLedController;
 BatteryMonitor batteryMonitor;
+BatteryLevelFilter batteryLevelFilter;
 CalibrationData calibrationData;
 MenuController menuController;
 XbeeControl xbeeControl;
@@ -774,7 +776,9 @@ void loop() {
     performGracefulShutdown();  // never returns
   }
 
-  const int batteryPercent = batteryMonitor.percentFor(rawVsys);
+  // Smoothed, with hysteresis, so the reported percent doesn't flicker
+  // between neighbours from ADC noise — see battery_level_filter.h.
+  const int batteryPercent = batteryLevelFilter.update(rawVsys, now);
   const ChargeState chargeState =
       batteryMonitor.chargeStateFor(stat1High, stat2High);
 

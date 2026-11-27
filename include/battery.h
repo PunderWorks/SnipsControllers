@@ -44,6 +44,10 @@ class BatteryMonitor {
   // Li-ion discharge curve, good enough for a v1 estimate.
   int percentFor(int rawAdc) const;
 
+  // Same mapping as percentFor(), but unrounded (0.0-100.0) and taking a
+  // fractional raw reading, so an averaged ADC value keeps its precision.
+  float percentExactFor(float rawAdc) const;
+
  private:
   static constexpr int kAdcMaxCounts = 4095;
   static constexpr float kAdcFullScaleVolts = 3.3f;
