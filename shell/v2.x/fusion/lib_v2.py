@@ -4171,26 +4171,22 @@ OLEDBAR_PARAMS = [
     ('oledbar_clr', '0.1 mm', 'OLED bar clearance under the PCB and in the channel'),
     ('oledbar_z0', 'oled_wall_z0 - oledbar_clr - oledbar_t', 'OLED bar bottom z (top is 0.1 mm under the PCB)'),
     ('oledbar_x_end', '13.6 mm', 'OLED bar tab half width (ends under the side walls, whose outer face is 13.825)'),
-    ('oledbar_arm_x0', '5.8 mm', 'OLED bar arms: inner x (wire gap |x| < this)'),
-    ('oledbar_arm_x1', '12.2 mm', 'OLED bar arms: outer x (PCB half width 12.425)'),
-    ('oledbar_y_rear', 'oled_front_y - 6.7 mm', 'OLED bar rear edge y'),
-    ('oledbar_band_w', '2.0 mm', 'OLED bar rear band width (y)'),
-    ('oledbar_y_front', 'oled_front_y + 0.7 mm', 'OLED bar arm front end y'),
-    ('oledbar_lip_y0', 'oled_front_y + 0.1 mm', 'OLED bar front lip rear face y (PCB front edge is oled_front_y)'),
-    ('oledbar_lip_top', '12.35 mm', 'OLED bar front lip top z (PCB top is 12.55)'),
+    ('oledbar_y_rear', 'oled_front_y - 7.7 mm', 'OLED bar rear edge y'),
+    ('oledbar_band_w', '5.0 mm', 'OLED bar length in y; the front edge is 0.2 mm behind the wire holes (hole centres oled_front_y - 2, d 1)'),
     ('oledbar_bump_r', '0.4 mm', 'OLED bar detent bump radius'),
     ('oledbar_bump_y', 'oledbar_y_rear + 1.0 mm', 'detent bump y when the bar is fully home'),
     ('oledbar_ch_clr', '0.2 mm', 'channel clearance beside the tab end'),
     ('oledbar_boss_x1', '15.9 mm', 'channel block outer x (buried in the shell side wall, inner face 15.5)'),
     ('oledbar_stop_t', '1.0 mm', 'channel rear stop wall thickness'),
-    ('oledbar_cr_y0', 'oled_front_y - 0.7 mm', 'wire cradle: rear y (the soldered pad joints are at oled_front_y - 2)'),
-    ('oledbar_cr_y1', 'oled_front_y + 0.9 mm', 'wire cradle: front y'),
-    ('oledbar_cr_post_y0', 'oled_front_y + 0.1 mm', 'wire cradle: posts and tabs rear y (0.1 mm in front of the PCB edge)'),
-    ('oledbar_cr_post_x0', '3.4 mm', 'wire cradle: post inner x (wire bundle up to 6.8 mm wide rests on the web)'),
-    ('oledbar_cr_post_x1', '4.0 mm', 'wire cradle: post outer x'),
-    ('oledbar_cr_tab_x0', '2.9 mm', 'wire cradle: snap tab inner x (bundle is pressed through a 5.8 mm gap)'),
-    ('oledbar_cr_top', '12.6 mm', 'wire cradle: post top z (PCB top is 12.55; button tubes start at 12.8)'),
-    ('oledbar_cr_tab_t', '0.6 mm', 'wire cradle: snap tab thickness'),
+    ('oledbar_tongue_l', '2.5 mm', 'channel floor tongue length from the rear stop; in front of it the channel is open to the cavity (the bar is lifted in there, then slid back; the face button stems block a slide in from the front)'),
+    ('oledbar_pc_gap', '1.2 mm', 'pen clip: gap between the bar underside and the clip arm (wire bundle)'),
+    ('oledbar_pc_t', '0.8 mm', 'pen clip: arm and post thickness'),
+    ('oledbar_pc_x0', '-6.4 mm', 'pen clip: anchor post outer x (the arm runs from here to oledbar_pc_x1)'),
+    ('oledbar_pc_x1', '5.6 mm', 'pen clip: free end x'),
+    ('oledbar_pc_y0', 'oledbar_y_rear + 1.0 mm', 'pen clip: rear y'),
+    ('oledbar_pc_w', '3.0 mm', 'pen clip: width in y'),
+    ('oledbar_pc_lip_x0', '4.8 mm', 'pen clip: free end lip, inner x'),
+    ('oledbar_pc_lip_h', '0.55 mm', 'pen clip: lip height above the arm (the wires snap past it)'),
 ]
 
 
@@ -4222,49 +4218,57 @@ def build_oled_bar_channels(top_comp, des):
     sk = top_comp.sketches.add(top_comp.xYConstructionPlane); sk.name = 'OLED bar dimples'
     c1 = circle_at(sk, des, cx1, 'oledbar_bump_y', '2 * (oledbar_bump_r + 0.2 mm)')
     _mirror_circle(sk, des, c1, cx1)
-    return ext(top_comp, all_profiles(sk), 'oledbar_t + 2 * oledbar_clr', FE.CutFeatureOperation, 'OLED bar dimples',
-               start='oledbar_z0 - oledbar_clr', target=body)
+    ext(top_comp, all_profiles(sk), 'oledbar_t + 2 * oledbar_clr', FE.CutFeatureOperation, 'OLED bar dimples',
+        start='oledbar_z0 - oledbar_clr', target=body)
+    return build_oled_bar_entry(top_comp, des)
+
+
+def build_oled_bar_entry(top_comp, des):
+    """Open the channel floor in front of the rear tongue: the bar goes in from below with its tabs 3 mm forward of home, then slides back
+    onto the tongue. (A slide in from the front is blocked by the face button stems at y >= -17.5.)"""
+    add_oledbar_params(des)
+    body = top_comp.bRepBodies.item(0)
+    xi = 'oled_pcb_w / 2 + oled_wall_clr'
+    cx1 = 'oledbar_x_end + oledbar_bump_r + 0.2 mm'          # wide enough for the tab's detent bump to rise through
+    sk = top_comp.sketches.add(top_comp.xYConstructionPlane); sk.name = 'OLED bar entry'
+    y0 = 'oledbar_y_rear - oledbar_ch_clr + oledbar_tongue_l'
+    rect4(sk, des, '%s - 0.1 mm' % xi, cx1, y0, 'oled_front_y + 3 mm')
+    rect4(sk, des, '-(%s)' % cx1, '-(%s) + 0.1 mm' % xi, y0, 'oled_front_y + 3 mm')
+    z0 = 'oledbar_z0 - oledbar_clr - 0.3 mm'
+    return ext(top_comp, all_profiles(sk), 'oled_wall_z0 - (%s)' % z0, FE.CutFeatureOperation, 'OLED bar entry',
+               start=z0, target=body)
 
 
 def build_oled_bar(root, des):
-    """The bar itself: flat strip with two front arms and lips, tab bumps. Prints as modelled (flat, z up)."""
+    """The bar: 5 mm strip across the PCB underside behind the wire holes, tab bumps, and a pen clip under it for the wires. Prints as
+    modelled (flat)."""
     add_oledbar_params(des)
     comp = new_component(root, 'OLED_Bar')
     sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = 'OLED bar'
-    xe, a0, a1 = 'oledbar_x_end', 'oledbar_arm_x0', 'oledbar_arm_x1'
-    yr, yb, yf = 'oledbar_y_rear', 'oledbar_y_rear + oledbar_band_w', 'oledbar_y_front'
-    poly_pts(sk, des, [('-(%s)' % xe, yr), (xe, yr), (xe, yb), (a1, yb), (a1, yf), (a0, yf), (a0, yb), ('-(%s)' % a0, yb),
-                       ('-(%s)' % a0, yf), ('-(%s)' % a1, yf), ('-(%s)' % a1, yb), ('-(%s)' % xe, yb)])
+    rect4(sk, des, '-(oledbar_x_end)', 'oledbar_x_end', 'oledbar_y_rear', 'oledbar_y_rear + oledbar_band_w')
     f = ext(comp, main_profile(sk), 'oledbar_t', FE.NewBodyFeatureOperation, 'OLED bar', start='oledbar_z0')
     body = f.bodies.item(0); body.name = 'OLED_Bar'
     sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = 'OLED bar bumps'
-    c1 = circle_at(sk, des, xe, 'oledbar_bump_y', '2 * oledbar_bump_r')
-    _mirror_circle(sk, des, c1, xe)
+    c1 = circle_at(sk, des, 'oledbar_x_end', 'oledbar_bump_y', '2 * oledbar_bump_r')
+    _mirror_circle(sk, des, c1, 'oledbar_x_end')
     ext(comp, all_profiles(sk), 'oledbar_t', FE.JoinFeatureOperation, 'OLED bar bumps', start='oledbar_z0', target=body)
-    sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = 'OLED bar lips'
-    rect4(sk, des, a0, a1, 'oledbar_lip_y0', yf)
-    rect4(sk, des, '-(%s)' % a1, '-(%s)' % a0, 'oledbar_lip_y0', yf)
-    ext(comp, all_profiles(sk), 'oledbar_lip_top - oledbar_z0 - oledbar_t + 0.1 mm', FE.JoinFeatureOperation, 'OLED bar lips',
-        start='oledbar_z0 + oledbar_t - 0.1 mm', target=body)
     build_oled_bar_clip(comp, des, body)
     return body
 
 
 def build_oled_bar_clip(comp, des, body):
-    """Wire cradle on the bar: a web across the wire gap in front of the pad exit, two posts with inward snap tabs. The four header wires
-    lie on the web under the PCB edge and are pressed past the tabs."""
+    """Pen clip under the bar: an anchor post at -x hangs from the bar underside, the arm runs along x below it with oledbar_pc_gap between
+    arm and bar, and a lip at the free end. The wires drop off the pads, round the bar's front edge, and are pressed in under the arm."""
     add_oledbar_params(des)
-    a0 = 'oledbar_arm_x0'
-    zt = 'oledbar_z0 + oledbar_t'
-    sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = 'OLED bar cradle web'
-    rect4(sk, des, '-(%s) - 0.1 mm' % a0, '%s + 0.1 mm' % a0, 'oledbar_cr_y0', 'oledbar_cr_y1')
-    ext(comp, all_profiles(sk), 'oledbar_t', FE.JoinFeatureOperation, 'OLED bar cradle web', start='oledbar_z0', target=body)
-    sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = 'OLED bar cradle posts'
-    rect4(sk, des, 'oledbar_cr_post_x0', 'oledbar_cr_post_x1', 'oledbar_cr_post_y0', 'oledbar_cr_y1')
-    rect4(sk, des, '-(oledbar_cr_post_x1)', '-(oledbar_cr_post_x0)', 'oledbar_cr_post_y0', 'oledbar_cr_y1')
-    ext(comp, all_profiles(sk), 'oledbar_cr_top - (%s) + 0.1 mm' % zt, FE.JoinFeatureOperation, 'OLED bar cradle posts', start='%s - 0.1 mm' % zt, target=body)
-    sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = 'OLED bar cradle tabs'
-    rect4(sk, des, 'oledbar_cr_tab_x0', 'oledbar_cr_post_x1', 'oledbar_cr_post_y0', 'oledbar_cr_y1')
-    rect4(sk, des, '-(oledbar_cr_post_x1)', '-(oledbar_cr_tab_x0)', 'oledbar_cr_post_y0', 'oledbar_cr_y1')
-    return ext(comp, all_profiles(sk), 'oledbar_cr_tab_t', FE.JoinFeatureOperation, 'OLED bar cradle tabs',
-               start='oledbar_cr_top - oledbar_cr_tab_t', target=body)
+    zb = 'oledbar_z0'                                       # bar underside
+    za = 'oledbar_z0 - oledbar_pc_gap - oledbar_pc_t'       # arm bottom
+    sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = 'OLED bar clip post'
+    rect4(sk, des, 'oledbar_pc_x0', 'oledbar_pc_x0 + oledbar_pc_t', 'oledbar_pc_y0', 'oledbar_pc_y0 + oledbar_pc_w')
+    ext(comp, all_profiles(sk), 'oledbar_pc_gap + oledbar_pc_t + 0.1 mm', FE.JoinFeatureOperation, 'OLED bar clip post', start=za, target=body)
+    sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = 'OLED bar clip arm'
+    rect4(sk, des, 'oledbar_pc_x0', 'oledbar_pc_x1', 'oledbar_pc_y0', 'oledbar_pc_y0 + oledbar_pc_w')
+    ext(comp, all_profiles(sk), 'oledbar_pc_t', FE.JoinFeatureOperation, 'OLED bar clip arm', start=za, target=body)
+    sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = 'OLED bar clip lip'
+    rect4(sk, des, 'oledbar_pc_lip_x0', 'oledbar_pc_x1', 'oledbar_pc_y0', 'oledbar_pc_y0 + oledbar_pc_w')
+    return ext(comp, all_profiles(sk), 'oledbar_pc_lip_h + 0.1 mm', FE.JoinFeatureOperation, 'OLED bar clip lip',
+               start='%s + oledbar_pc_t - 0.1 mm' % za, target=body)
