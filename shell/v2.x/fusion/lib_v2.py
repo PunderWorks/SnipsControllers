@@ -1457,7 +1457,7 @@ BUMP2_PARAMS = [
     ('bm_pk_clr', '0.2 mm', 'Flange pocket clearance per side'),
     ('bm_pk_axial', '0.15 mm', 'Free travel between flange outer face and pocket floor'),
     ('bm_stem_w', '18 mm', 'Stem width (x)'),
-    ('bm_stem_zb', '-0.7 mm', 'Stem bottom z (raised so the stem clears the trigger hub: hub r 2.6 about the pivot, now 2 mm forward of the flange)'),
+    ('bm_stem_zb', '-1.0 mm', 'Stem bottom z (raised so the stem clears the trigger hub: hub r 2.6 about the pivot, now 2 mm forward of the flange)'),
     ('bm_stem_top', '2.2 mm', 'Stem top z'),
     ('bm_stem_h', 'bm_stem_top - bm_stem_zb', 'Stem height (z); the stem is centred on bm_stem_zc, not on bm_z'),
     ('bm_stem_zc', '(bm_stem_top + bm_stem_zb) / 2', 'Stem / slot centre z'),
@@ -3996,8 +3996,8 @@ COLLAR_PARAMS = [
     ('bm_col_gap', '0.1 mm', 'Bumper collar halves stop this far either side of z = bm_z (0.2 mm seam gap)'),
     ('bm_col_y0', 'bm_fl_in_y - 0.05 mm', 'Bumper collar rear face y (same as the old pocket start)'),
     ('bm_col_y1', 'bm_wall_in_y + 0.5 mm', 'Bumper collar front face y (buried in the front wall)'),
-    ('bm_col_nx0', '-8.65 mm', 'Bottom collar trigger notch: left edge x (trigger tip is x -8.25..7.6 plus 0.4 mm)'),
-    ('bm_col_nx1', '8.0 mm', 'Bottom collar trigger notch: right edge x'),
+    ('bm_col_nx0', '-(bm_fl_w / 2 + 1 mm)', 'Flange notch: left edge x (wider than the flange: no legs, they would hit the trigger post)'),
+    ('bm_col_nx1', 'bm_fl_w / 2 + 1 mm', 'Flange notch: right edge x'),
     ('bm_col_nz', '-3.4 mm', 'Bottom collar trigger notch: top z (cuts the collar bar below the flange pocket)'),
 ]
 
@@ -4010,39 +4010,38 @@ def add_collar_params(des):
             up.add(n, VI(e), 'mm', c)
 
 
-def build_bumper_collar(comp, des, key, target):
-    """Collar ring (half) behind the front wall for the bumper flange. key 'Top' (z >= gap) or 'Bottom' (z <= -gap)."""
+# Bumper flange guide rails (replace the collar ring: its lower wings hit the trigger post and the ring was hard to print).
+# Two thin vertical rails at the flange ends, joined to the front wall; the bottom half stops above the post top (z -1.55).
+RAIL_PARAMS = [
+    ('bm_rail_zb', '-1.2 mm', 'Bumper guide rails: lowest z (post top is -1.55)'),
+]
+
+
+def build_bumper_rails(comp, des, key, target):
+    """Rails at x = +-(flange half width + clearance) .. + bm_col_t, from bm_col_y0 into the front wall. key 'Top' or 'Bottom'."""
     add_collar_params(des)
+    up = des.userParameters
+    for n, e, c in RAIL_PARAMS:
+        if up.itemByName(n) is None: up.add(n, VI(e), 'mm', c)
     k = key.lower()
-    sk = comp.sketches.add(comp.xZConstructionPlane); sk.name = 'Bumper collar %s' % k
-    rrect(sk, des, 'bm_fl_w + 2 * bm_pk_clr + 2 * bm_col_t', 'bm_fl_h + 2 * bm_pk_clr + 2 * bm_col_t', 'bm_fl_r + bm_pk_clr + bm_col_t')
-    rrect(sk, des, 'bm_fl_w + 2 * bm_pk_clr', 'bm_fl_h + 2 * bm_pk_clr', 'bm_fl_r + bm_pk_clr')
+    sk = comp.sketches.add(comp.xZConstructionPlane); sk.name = 'Bumper rails %s' % k
+    xi, xo = 'bm_fl_w / 2 + bm_pk_clr', 'bm_fl_w / 2 + bm_pk_clr + bm_col_t'
     if k == 'top':
-        rect4(sk, des, '-30 mm', '30 mm', '-20 mm', '-bm_col_gap')       # sketch y = -z: z from gap upward
+        lo, hi = '-(bm_fl_h / 2 + bm_pk_clr)', '-(bm_col_gap)'         # sketch y = -z: z from gap up to the pocket top
     else:
-        rect4(sk, des, '-30 mm', '30 mm', 'bm_col_gap', '20 mm')         # z from gap downward
-    ow, oh = [ev_cm(des, e) / 2 for e in ('bm_fl_w + 2 * bm_pk_clr + 2 * bm_col_t', 'bm_fl_h + 2 * bm_pk_clr + 2 * bm_col_t')]
-    iw, ih = [ev_cm(des, e) / 2 for e in ('bm_fl_w + 2 * bm_pk_clr', 'bm_fl_h + 2 * bm_pk_clr')]
-    gap = ev_cm(des, 'bm_col_gap'); eps = 1e-4
-    sel = adsk.core.ObjectCollection.create()
-    for p in sk.profiles:
-        bb = p.boundingBox; cp = p.areaProperties().centroid
-        mx = max(abs(bb.minPoint.x), abs(bb.maxPoint.x)); my = max(abs(bb.minPoint.y), abs(bb.maxPoint.y))
-        side_ok = (cp.y < -gap) if k == 'top' else (cp.y > gap)
-        if side_ok and mx <= ow + eps and my <= oh + eps and not (mx <= iw + eps and my <= ih + eps):
-            sel.add(p)
-    if sel.count != 1:
-        raise RuntimeError('collar profiles selected: %d of %d' % (sel.count, sk.profiles.count))
-    return ext(comp, sel, 'bm_col_y1 - bm_col_y0', FE.JoinFeatureOperation, 'Bumper collar %s' % k, start='bm_col_y0', target=target)
+        lo, hi = 'bm_col_gap', '-(bm_rail_zb)'
+    rect4(sk, des, xi, xo, lo, hi)
+    rect4(sk, des, '-(%s)' % xo, '-(%s)' % xi, lo, hi)
+    return ext(comp, all_profiles(sk), 'bm_col_y1 - bm_col_y0', FE.JoinFeatureOperation, 'Bumper rails %s' % k, start='bm_col_y0', target=target)
 
 
-def build_bumper_collar_notch(comp, des, target):
-    """Bottom collar: clear the bar under the flange pocket where the (shifted) trigger tip passes."""
+def build_bumper_fill_pocket(comp, des, target):
+    """Bottom shell: flange pocket through the pivot column fill (the fill reaches x 9.x, inside the flange width), from the flange
+    rear face to the front wall inner face. Open to the cavity, so the flange rides between the pocket sides and the rails."""
     add_collar_params(des)
-    sk = comp.sketches.add(comp.xZConstructionPlane); sk.name = 'Bumper collar notch'
-    rect4(sk, des, 'bm_col_nx0', 'bm_col_nx1', '-(bm_col_nz) + 0.0 mm', '8 mm')   # z from bm_col_nz down to -8
-    return ext(comp, main_profile(sk), 'bm_wall_in_y - (bm_col_y0 - 0.1 mm)', FE.CutFeatureOperation, 'Bumper collar notch',
-               start='bm_col_y0 - 0.1 mm', target=target)
+    sk = comp.sketches.add(comp.xZConstructionPlane); sk.name = 'Bumper fill pocket'
+    rect4(sk, des, '-(bm_fl_w / 2 + bm_pk_clr)', 'bm_fl_w / 2 + bm_pk_clr', '-(3 mm)', '-(bm_fl_nz) + bm_pk_clr')   # z from bm_fl_nz - clr up to 3
+    return ext(comp, all_profiles(sk), 'bm_wall_in_y - bm_col_y0', FE.CutFeatureOperation, 'Bumper fill pocket', start='bm_col_y0', target=target)
 
 
 # ---------------------------------------------------------------- pivot column fill (item 4: pivot moved 2 mm forward)
