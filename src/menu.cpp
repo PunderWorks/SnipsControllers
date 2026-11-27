@@ -44,9 +44,18 @@ const char *mainMenuItemLabel(MainMenuItem item) {
     case MainMenuItem::kPowerConfig: return "Power Management";
     case MainMenuItem::kDeviceInfo: return "Device Info";
     case MainMenuItem::kButtonTest: return "Button Test";
+    case MainMenuItem::kStickTest: return "Stick Test";
+    case MainMenuItem::kTriggerTest: return "Trigger Test";
+    case MainMenuItem::kMotionTest: return "Motion Test";
     case MainMenuItem::kFactoryReset: return "Factory Reset";
     default: return "Unknown";
   }
+}
+
+bool isLiveMenuScreen(MenuScreen screen) {
+  return screen == MenuScreen::kStickTest ||
+         screen == MenuScreen::kTriggerTest ||
+         screen == MenuScreen::kMotionTest;
 }
 
 MainMenuItem MenuController::selectedMainMenuItem() const {
@@ -248,6 +257,9 @@ void MenuController::onBack() {
     case MenuScreen::kPowerConfig:
     case MenuScreen::kDeviceInfo:
     case MenuScreen::kButtonTest:
+    case MenuScreen::kStickTest:
+    case MenuScreen::kTriggerTest:
+    case MenuScreen::kMotionTest:
     case MenuScreen::kFactoryResetConfirm:
       screen_ = MenuScreen::kMainMenu;
       break;
@@ -296,6 +308,16 @@ void MenuController::enterMainMenuItem(MainMenuItem item) {
     case MainMenuItem::kButtonTest:
       lastTestedButtonIndex_ = -1;
       screen_ = MenuScreen::kButtonTest;
+      break;
+    case MainMenuItem::kStickTest:
+      screen_ = MenuScreen::kStickTest;
+      break;
+    case MainMenuItem::kTriggerTest:
+      screen_ = MenuScreen::kTriggerTest;
+      break;
+    case MainMenuItem::kMotionTest:
+      motionTest_.reset();
+      screen_ = MenuScreen::kMotionTest;
       break;
     case MainMenuItem::kFactoryReset:
       screen_ = MenuScreen::kFactoryResetConfirm;
@@ -449,6 +471,15 @@ void MenuController::onEnter(int rawTrigger, int rawStickX, int rawStickY) {
     case MenuScreen::kButtonTest:
       break;
 
+    case MenuScreen::kStickTest:
+    case MenuScreen::kTriggerTest:
+      break;
+
+    // Zeroes yaw and the max g, so a fresh turn or shake can be measured.
+    case MenuScreen::kMotionTest:
+      motionTest_.reset();
+      break;
+
     // No confirm step -- Up/Down apply and save the change immediately
     // (see onUp()/onDown()).
     case MenuScreen::kStickDeadzone:
@@ -485,8 +516,26 @@ void MenuController::onButtonTestPress(size_t buttonIndex) {
   lastTestedButtonIndex_ = static_cast<int>(buttonIndex);
 }
 
+void MenuController::updateTriggerReading(int raw, int percent) {
+  triggerReading_.raw = raw;
+  triggerReading_.percent = percent;
+}
+
+void MenuController::onImuSample(const ImuSample &sample,
+                                 unsigned long nowMs) {
+  if (screen_ != MenuScreen::kMotionTest) return;
+  motionTest_.update(sample, nowMs);
+}
+
 bool MenuController::tick(int rawStickX, int rawStickY, int stickXPercent,
                           int stickYPercent) {
+  stickReading_.rawX = rawStickX;
+  stickReading_.rawY = rawStickY;
+  stickReading_.xPercent = stickXPercent;
+  stickReading_.yPercent = stickYPercent;
+  // The stick is what's being tested here, so it doesn't navigate.
+  if (screen_ == MenuScreen::kStickTest) return false;
+
   if (screen_ == MenuScreen::kCalibrateStick) {
     if (stickFlow_.currentStep() != StickCalibrationFlow::Step::kRolling) {
       return false;
@@ -903,6 +952,18 @@ void renderMenuScreen(const MenuController &menu, ScreenBuffer *screen) {
         screen->setLine(1, line);
       }
       screen->setLine(3, "Bumper = exit");
+      break;
+
+    case MenuScreen::kStickTest:
+      InputTestScreens::renderStickTest(menu.stickTestReading(), screen);
+      break;
+
+    case MenuScreen::kTriggerTest:
+      InputTestScreens::renderTriggerTest(menu.triggerTestReading(), screen);
+      break;
+
+    case MenuScreen::kMotionTest:
+      InputTestScreens::renderMotionTest(menu.motionTest(), screen);
       break;
 
     case MenuScreen::kFactoryResetConfirm:

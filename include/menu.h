@@ -7,6 +7,8 @@
 #include "status_screen.h"
 #include "text_entry.h"
 #include "droid_switcher.h"
+#include "input_test_screens.h"
+#include "motion_test.h"
 
 // Pure on-device menu state machine. Knows nothing about real buttons or
 // the display — SnipsController.ino translates physical button edges into
@@ -30,6 +32,9 @@ enum class MenuScreen {
   kPowerConfig,
   kDeviceInfo,
   kButtonTest,
+  kStickTest,
+  kTriggerTest,
+  kMotionTest,
   kFactoryResetConfirm,
 };
 
@@ -44,6 +49,9 @@ enum class MainMenuItem {
   kPowerConfig,
   kDeviceInfo,
   kButtonTest,
+  kStickTest,
+  kTriggerTest,
+  kMotionTest,
   kFactoryReset,
   kCount,
 };
@@ -69,6 +77,10 @@ enum class BrightnessRow {
 };
 
 const char *mainMenuItemLabel(MainMenuItem item);
+
+// True for screens that show live readings (Stick/Trigger/Motion Test),
+// which SnipsController.ino redraws on a timer instead of only on input.
+bool isLiveMenuScreen(MenuScreen screen);
 
 class MenuController {
  public:
@@ -110,8 +122,8 @@ class MenuController {
   //    discrete nav event, and the stick must return near center before
   //    it can fire again, so holding it doesn't spam repeated scrolls
   //    or brightness steps. Skipped entirely on
-  //    kCalibrateStick, where stick position is the data being
-  //    captured, not a nav input.
+  //    kCalibrateStick and kStickTest, where stick position is the data
+  //    being captured or shown, not a nav input.
   // Returns true if it fired a nav event, or if stick calibration's
   // rolling progress (sides with enough range) changed, this call —
   // SnipsController.ino needs this to know when to redraw (see its
@@ -152,6 +164,20 @@ class MenuController {
   // screen was opened".
   void onButtonTestPress(size_t buttonIndex);
   int lastTestedButtonIndex() const { return lastTestedButtonIndex_; }
+
+  // Live readings for the Stick/Trigger/Motion Test screens. The stick
+  // readings come from tick(), which also stops stick navigation on
+  // Stick Test, so moving the stick there only moves the dot. Call
+  // updateTriggerReading() every tick and onImuSample() with each
+  // bias-corrected IMU sample (only tracked while Motion Test is open;
+  // entering it, or Enter on it, starts the yaw and max-g over).
+  void updateTriggerReading(int raw, int percent);
+  void onImuSample(const ImuSample &sample, unsigned long nowMs);
+  const StickTestReading &stickTestReading() const { return stickReading_; }
+  const TriggerTestReading &triggerTestReading() const {
+    return triggerReading_;
+  }
+  const MotionTestTracker &motionTest() const { return motionTest_; }
 
   // Droid management — the store is owned here so rendering/navigation
   // can see it directly; SnipsController.ino restores it from
@@ -263,6 +289,10 @@ class MenuController {
   bool factoryResetConfirmed_ = false;
 
   int lastTestedButtonIndex_ = -1;
+
+  StickTestReading stickReading_;
+  TriggerTestReading triggerReading_;
+  MotionTestTracker motionTest_;
 
   // Re-armed once stickYPercent returns near center — see tick().
   bool stickNavArmed_ = true;
