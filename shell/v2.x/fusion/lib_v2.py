@@ -4147,3 +4147,194 @@ def build_pivot_fill_recut(c, des, body):
     circle_at(sk, des, 'mh2_x', 'mh2_y', 'screw_clr_d')
     ext(c, all_profiles(sk), 'pcb_bot_z - screw_head_seat_z + 0.1 mm', FE.CutFeatureOperation, 'Screw bores (fill)', start='screw_head_seat_z', target=body)
 
+
+
+def _mirror_circle(sk, des, c1, cx_expr):
+    """Second circle at -x of c1 (same y, same size), tied to it by constraints and one dimension."""
+    g = c1.centerSketchPoint.geometry
+    c2 = sk.sketchCurves.sketchCircles.addByCenterRadius(P3(-g.x, g.y, 0), c1.radius)
+    sk.geometricConstraints.addHorizontalPoints(c1.centerSketchPoint, c2.centerSketchPoint)
+    sk.geometricConstraints.addEqual(c1, c2)
+    d = sk.sketchDimensions.addDistanceDimension(c1.centerSketchPoint, c2.centerSketchPoint, adsk.fusion.DimensionOrientations.HorizontalDimensionOrientation, P3(0, g.y + 0.5, 0))
+    d.parameter.expression = '2 * (%s)' % cx_expr
+    return c2
+
+
+# ------------------------------------------------------------------------ OLED retention bar (print test 4, item 2)
+# The OLED is no longer taped: it sits between the roof pads (above) and a separate slide-in bar (below the PCB, 0.1 mm gap), inside the
+# U shaped walls. The bar is a thin strip under the PCB's front band; its ends slide along y into channels in blocks under the side
+# walls (the channel ceiling is the wall's bottom face), from the open front, to a rear stop. Two arms with a front lip close the front edge of
+# the PCB outside the wire gap (x +-arm_x0, the four header wires leave the pads at x +-1.3 / +-3.8). A small bump on each tab clicks into
+# a dimple in the channel's outer wall.
+OLEDBAR_PARAMS = [
+    ('oledbar_t', '1.0 mm', 'OLED bar thickness'),
+    ('oledbar_clr', '0.1 mm', 'OLED bar clearance under the PCB and in the channel'),
+    ('oledbar_z0', 'oled_wall_z0 - oledbar_clr - oledbar_t', 'OLED bar bottom z (top is 0.1 mm under the PCB)'),
+    ('oledbar_x_end', '13.6 mm', 'OLED bar tab half width (ends under the side walls, whose outer face is 13.825)'),
+    ('oledbar_y_rear', 'oled_front_y - 7.7 mm', 'OLED bar rear edge y'),
+    ('oledbar_band_w', '5.0 mm', 'OLED bar length in y; the front edge is 0.2 mm behind the wire holes (hole centres oled_front_y - 2, d 1)'),
+    ('oledbar_bump_r', '0.4 mm', 'OLED bar detent bump radius'),
+    ('oledbar_bump_y', 'oledbar_y_rear + 1.0 mm', 'detent bump y when the bar is fully home'),
+    ('oledbar_ch_clr', '0.2 mm', 'channel clearance beside the tab end'),
+    ('oledbar_boss_x1', '15.9 mm', 'channel block outer x (buried in the shell side wall, inner face 15.5)'),
+    ('oledbar_stop_t', '1.0 mm', 'channel rear stop wall thickness'),
+    ('oledbar_tongue_l', '2.5 mm', 'channel floor tongue length from the rear stop; in front of it the channel is open to the cavity (the bar is lifted in there, then slid back; the face button stems block a slide in from the front)'),
+    ('oledbar_pc_gap', '1.2 mm', 'pen clip: gap between the bar underside and the clip arm (wire bundle)'),
+    ('oledbar_pc_t', '0.8 mm', 'pen clip: arm and post thickness'),
+    ('oledbar_pc_x0', '-6.4 mm', 'pen clip: anchor post outer x (the arm runs from here to oledbar_pc_x1)'),
+    ('oledbar_pc_x1', '5.6 mm', 'pen clip: free end x'),
+    ('oledbar_pc_y0', 'oledbar_y_rear + 1.0 mm', 'pen clip: rear y'),
+    ('oledbar_pc_w', '3.0 mm', 'pen clip: width in y'),
+    ('oledbar_pc_lip_x0', '4.8 mm', 'pen clip: free end lip, inner x'),
+    ('oledbar_pc_lip_h', '0.55 mm', 'pen clip: lip height above the arm (the wires snap past it)'),
+]
+
+
+def add_oledbar_params(des):
+    up = des.userParameters
+    for n, e, c in OLEDBAR_PARAMS:
+        if up.itemByName(n) is None:
+            up.add(n, VI(e), 'mm', c)
+
+
+def build_oled_bar_channels(top_comp, des):
+    """TopShell: channel blocks under the OLED side walls (join), then the channel (cut) and the dimples for the bar's detent bumps."""
+    add_oledbar_params(des)
+    body = top_comp.bRepBodies.item(0)
+    xi = 'oled_pcb_w / 2 + oled_wall_clr'                   # wall inner face
+    sk = top_comp.sketches.add(top_comp.xYConstructionPlane); sk.name = 'OLED bar blocks'
+    y0, y1 = 'oledbar_y_rear - oledbar_ch_clr - oledbar_stop_t', 'oled_front_y + 0.5 mm'
+    rect4(sk, des, xi, 'oledbar_boss_x1', y0, y1)
+    rect4(sk, des, '-(oledbar_boss_x1)', '-(%s)' % xi, y0, y1)
+    bz0 = 'oledbar_z0 - oledbar_clr - 0.2 mm'
+    ext(top_comp, all_profiles(sk), 'oled_wall_z0 + 0.1 mm - (%s)' % bz0, FE.JoinFeatureOperation, 'OLED bar blocks', start=bz0, target=body)
+    sk = top_comp.sketches.add(top_comp.xYConstructionPlane); sk.name = 'OLED bar channels'
+    cy0, cy1 = 'oledbar_y_rear - oledbar_ch_clr', 'oled_front_y + 3 mm'
+    cx1 = 'oledbar_x_end + oledbar_ch_clr'
+    rect4(sk, des, '%s - 0.1 mm' % xi, cx1, cy0, cy1)
+    rect4(sk, des, '-(%s)' % cx1, '-(%s) + 0.1 mm' % xi, cy0, cy1)
+    ext(top_comp, all_profiles(sk), 'oled_wall_z0 - (oledbar_z0 - oledbar_clr)', FE.CutFeatureOperation, 'OLED bar channels',
+        start='oledbar_z0 - oledbar_clr', target=body)
+    sk = top_comp.sketches.add(top_comp.xYConstructionPlane); sk.name = 'OLED bar dimples'
+    c1 = circle_at(sk, des, cx1, 'oledbar_bump_y', '2 * (oledbar_bump_r + 0.2 mm)')
+    _mirror_circle(sk, des, c1, cx1)
+    ext(top_comp, all_profiles(sk), 'oledbar_t + 2 * oledbar_clr', FE.CutFeatureOperation, 'OLED bar dimples',
+        start='oledbar_z0 - oledbar_clr', target=body)
+    return build_oled_bar_entry(top_comp, des)
+
+
+def build_oled_bar_entry(top_comp, des):
+    """Open the channel floor in front of the rear tongue: the bar goes in from below with its tabs 3 mm forward of home, then slides back
+    onto the tongue. (A slide in from the front is blocked by the face button stems at y >= -17.5.)"""
+    add_oledbar_params(des)
+    body = top_comp.bRepBodies.item(0)
+    xi = 'oled_pcb_w / 2 + oled_wall_clr'
+    cx1 = 'oledbar_x_end + oledbar_bump_r + 0.2 mm'          # wide enough for the tab's detent bump to rise through
+    sk = top_comp.sketches.add(top_comp.xYConstructionPlane); sk.name = 'OLED bar entry'
+    y0 = 'oledbar_y_rear - oledbar_ch_clr + oledbar_tongue_l'
+    rect4(sk, des, '%s - 0.1 mm' % xi, cx1, y0, 'oled_front_y + 3 mm')
+    rect4(sk, des, '-(%s)' % cx1, '-(%s) + 0.1 mm' % xi, y0, 'oled_front_y + 3 mm')
+    z0 = 'oledbar_z0 - oledbar_clr - 0.3 mm'
+    return ext(top_comp, all_profiles(sk), 'oled_wall_z0 - (%s)' % z0, FE.CutFeatureOperation, 'OLED bar entry',
+               start=z0, target=body)
+
+
+def build_oled_bar(root, des):
+    """The bar: 5 mm strip across the PCB underside behind the wire holes, tab bumps, and a pen clip under it for the wires. Prints as
+    modelled (flat)."""
+    add_oledbar_params(des)
+    comp = new_component(root, 'OLED_Bar')
+    sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = 'OLED bar'
+    rect4(sk, des, '-(oledbar_x_end)', 'oledbar_x_end', 'oledbar_y_rear', 'oledbar_y_rear + oledbar_band_w')
+    f = ext(comp, main_profile(sk), 'oledbar_t', FE.NewBodyFeatureOperation, 'OLED bar', start='oledbar_z0')
+    body = f.bodies.item(0); body.name = 'OLED_Bar'
+    sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = 'OLED bar bumps'
+    c1 = circle_at(sk, des, 'oledbar_x_end', 'oledbar_bump_y', '2 * oledbar_bump_r')
+    _mirror_circle(sk, des, c1, 'oledbar_x_end')
+    ext(comp, all_profiles(sk), 'oledbar_t', FE.JoinFeatureOperation, 'OLED bar bumps', start='oledbar_z0', target=body)
+    build_oled_bar_clip(comp, des, body)
+    return body
+
+
+def build_oled_bar_clip(comp, des, body):
+    """Pen clip under the bar: an anchor post at -x hangs from the bar underside, the arm runs along x below it with oledbar_pc_gap between
+    arm and bar, and a lip at the free end. The wires drop off the pads, round the bar's front edge, and are pressed in under the arm."""
+    add_oledbar_params(des)
+    zb = 'oledbar_z0'                                       # bar underside
+    za = 'oledbar_z0 - oledbar_pc_gap - oledbar_pc_t'       # arm bottom
+    sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = 'OLED bar clip post'
+    rect4(sk, des, 'oledbar_pc_x0', 'oledbar_pc_x0 + oledbar_pc_t', 'oledbar_pc_y0', 'oledbar_pc_y0 + oledbar_pc_w')
+    ext(comp, all_profiles(sk), 'oledbar_pc_gap + oledbar_pc_t + 0.1 mm', FE.JoinFeatureOperation, 'OLED bar clip post', start=za, target=body)
+    sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = 'OLED bar clip arm'
+    rect4(sk, des, 'oledbar_pc_x0', 'oledbar_pc_x1', 'oledbar_pc_y0', 'oledbar_pc_y0 + oledbar_pc_w')
+    ext(comp, all_profiles(sk), 'oledbar_pc_t', FE.JoinFeatureOperation, 'OLED bar clip arm', start=za, target=body)
+    sk = comp.sketches.add(comp.xYConstructionPlane); sk.name = 'OLED bar clip lip'
+    rect4(sk, des, 'oledbar_pc_lip_x0', 'oledbar_pc_x1', 'oledbar_pc_y0', 'oledbar_pc_y0 + oledbar_pc_w')
+    return ext(comp, all_profiles(sk), 'oledbar_pc_lip_h + 0.1 mm', FE.JoinFeatureOperation, 'OLED bar clip lip',
+               start='%s + oledbar_pc_t - 0.1 mm' % za, target=body)
+
+
+# ---------------------------------------------------------------- wire retention in the lower shell, 2026-11-27 (print test 4, item 3) ----
+# Wires: the 2-pin JST (under the PCB, right-rear, mating face toward +y) takes the positive wire (rear contact) and the negative wire
+# (front contact, out through the bulkhead V notch). The u.fl antenna wire leaves the XBee carrier on the left, runs forward along the
+# left gap, crosses in front of the bulkhead and comes back along the right gap.
+# Lane: the gaps between the cell cradle and the side walls have a horizontal rib (the shelf, top z -6.75, x 8.5..12.5 over the vertical
+# cradle wall x 11..12.5). Wires lie on the shelf between the sloped channel wall and a post; the post carries a tooth over the wire.
+# Front: the bulkhead front face (y 11.9) gets a ledge below the wire hole exit; the trigger pulls back to y 14.4 so it stays inside 14.3.
+# (The positive wire reaches the JST through the 1.5..2.5 mm lane between the channel wall and the right rear post, above z -3.)
+WIRERET_PARAMS = [
+    ('wr_len', '2.5 mm', 'hook length along y'),
+    ('wr_px0', '11.0 mm', 'hook post inner face x (wire side), over the vertical cradle wall'),
+    ('wr_px1', '12.4 mm', 'hook post outer face x'),
+    ('wr_pz0', '-6.9 mm', 'hook post bottom z (0.15 mm into the shelf)'),
+    ('wr_tz0', '-2.6 mm', 'tooth underside z (lane height above the shelf is 4.15 mm: two 22 AWG wires stacked plus the coax beside them)'),
+    ('wr_tz1', '-2.0 mm', 'tooth top z'),
+    ('wr_tx', '9.0 mm', 'tooth tip x (throat to the sloped channel wall is about 2.3 mm)'),
+    ('wr_y1', '-19 mm', 'hook 1 start y'),
+    ('wr_y2', '-9 mm', 'hook 2 start y'),
+    ('wr_y3', '1 mm', 'hook 3 start y'),
+    ('wr_y4', '9 mm', 'hook 4 start y'),
+    ('wr_fl_x', '12.4 mm', 'front ledge half width'),
+    ('wr_fl_y0', 'bay_front_y + 1.55 mm', 'front ledge start y (0.1 mm into the bulkhead wall front face at y 11.9... wall face is bay_front_y + 1.65)'),
+    ('wr_fl_y1', 'bay_front_y + 4.05 mm', 'front ledge end y (trigger pulled 20 deg reaches y 14.39)'),
+    ('wr_fl_zt', '-9.4 mm', 'front ledge top z (below the wire hole exit at the cell axis)'),
+    ('wr_fl_zb', '-10.9 mm', 'front ledge bottom z'),
+    ('wr_lip_x0', '8.0 mm', 'front lip inner x (centre stays open for the negative wire exit)'),
+    ('wr_lip_y0', 'bay_front_y + 3.45 mm', 'front lip start y'),
+    ('wr_lip_zt', '-7.6 mm', 'front lip top z'),
+]
+
+
+def add_wireret_params(des):
+    add_bay_params(des)
+    up = des.userParameters
+    for n, e, cm in WIRERET_PARAMS:
+        pr = up.itemByName(n)
+        if pr is None: up.add(n, VI(e), 'mm', cm)
+        else: pr.expression = e
+
+
+def build_wire_hooks(c, des, body):
+    """Hooks (post + tooth) on the shelf in both side gaps, at wr_y1..wr_y4."""
+    add_wireret_params(des)
+    sk = c.sketches.add(c.xZConstructionPlane); sk.name = 'Wire hooks'
+    for s in (1, -1):
+        X = (lambda e: '(%s)' % e) if s > 0 else (lambda e: '-(%s)' % e)
+        poly_pts(sk, des, [(X('wr_px0'), '-(wr_pz0)'), (X('wr_px1'), '-(wr_pz0)'), (X('wr_px1'), '-(wr_tz1)'),
+                           (X('wr_tx'), '-(wr_tz1)'), (X('wr_tx'), '-(wr_tz0)'), (X('wr_px0'), '-(wr_tz0)')])
+    last = None
+    for i in (1, 2, 3, 4):
+        last = ext(c, all_profiles(sk), 'wr_len', FE.JoinFeatureOperation, 'Wire hooks %d' % i, start='wr_y%d' % i, target=body)
+    return last
+
+
+def build_wire_ledge(c, des, body):
+    """Ledge across the front of the bulkhead for the antenna cable and the negative wire, with a low lip at each side."""
+    add_wireret_params(des)
+    sk = c.sketches.add(c.xZConstructionPlane); sk.name = 'Wire front ledge'
+    rect4(sk, des, '-wr_fl_x', 'wr_fl_x', '-(wr_fl_zt)', '-(wr_fl_zb)')
+    ext(c, all_profiles(sk), 'wr_fl_y1 - wr_fl_y0', FE.JoinFeatureOperation, 'Wire front ledge', start='wr_fl_y0', target=body)
+    sk = c.sketches.add(c.xZConstructionPlane); sk.name = 'Wire front lips'
+    rect4(sk, des, 'wr_lip_x0', 'wr_fl_x', '-(wr_lip_zt)', '-(wr_fl_zt) + 0.1 mm')
+    rect4(sk, des, '-wr_fl_x', '-wr_lip_x0', '-(wr_lip_zt)', '-(wr_fl_zt) + 0.1 mm')
+    return ext(c, all_profiles(sk), 'wr_fl_y1 - wr_lip_y0', FE.JoinFeatureOperation, 'Wire front lips', start='wr_lip_y0', target=body)
