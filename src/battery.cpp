@@ -24,16 +24,19 @@ ChargeState BatteryMonitor::chargeStateFor(bool stat1High,
 }
 
 int BatteryMonitor::percentFor(int rawAdc) const {
-  if (rawAdc < 0) rawAdc = 0;
+  return static_cast<int>(percentExactFor(static_cast<float>(rawAdc)) + 0.5f);
+}
+
+float BatteryMonitor::percentExactFor(float rawAdc) const {
+  if (rawAdc < 0.0f) rawAdc = 0.0f;
   if (rawAdc > kAdcMaxCounts) rawAdc = kAdcMaxCounts;
 
-  const float pinVolts =
-      (static_cast<float>(rawAdc) / kAdcMaxCounts) * kAdcFullScaleVolts;
+  const float pinVolts = (rawAdc / kAdcMaxCounts) * kAdcFullScaleVolts;
   const float batteryVolts = pinVolts * kVsysDividerRatio;
 
   float percent = (batteryVolts - kEmptyVoltage) /
                   (kFullVoltage - kEmptyVoltage) * 100.0f;
   if (percent < 0.0f) percent = 0.0f;
   if (percent > 100.0f) percent = 100.0f;
-  return static_cast<int>(percent + 0.5f);
+  return percent;
 }

@@ -66,6 +66,18 @@ void test_percent_clamps_raw_beyond_range_to_hundred() {
   TEST_ASSERT_EQUAL_INT(100, monitor.percentFor(999999));
 }
 
+void test_percent_exact_keeps_the_fraction() {
+  BatteryMonitor monitor;
+  // 1491.5 counts is about 3.605 V: half a percent above the midpoint.
+  TEST_ASSERT_FLOAT_WITHIN(0.1f, 50.5f, monitor.percentExactFor(1491.5f));
+}
+
+void test_percent_exact_clamps_both_ends() {
+  BatteryMonitor monitor;
+  TEST_ASSERT_EQUAL_FLOAT(0.0f, monitor.percentExactFor(-10.0f));
+  TEST_ASSERT_EQUAL_FLOAT(100.0f, monitor.percentExactFor(5000.0f));
+}
+
 void test_usb_host_is_detected_whatever_the_charger_says() {
   TEST_ASSERT_TRUE(UsbPower::kHost ==
                    usbPowerFor(true, ChargeState::kDone));
@@ -108,6 +120,8 @@ int main(int argc, char **argv) {
   RUN_TEST(test_percent_at_raw_max_clamps_to_hundred);
   RUN_TEST(test_percent_clamps_negative_raw_to_zero);
   RUN_TEST(test_percent_clamps_raw_beyond_range_to_hundred);
+  RUN_TEST(test_percent_exact_keeps_the_fraction);
+  RUN_TEST(test_percent_exact_clamps_both_ends);
   RUN_TEST(test_usb_host_is_detected_whatever_the_charger_says);
   RUN_TEST(test_charging_without_host_means_power_only_usb);
   RUN_TEST(test_no_host_and_not_charging_is_not_detected);
