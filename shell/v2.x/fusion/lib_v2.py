@@ -4039,8 +4039,10 @@ def build_bumper_fill_pocket(comp, des, target):
     """Bottom shell: flange pocket through the pivot column fill (the fill reaches x 9.x, inside the flange width), from the flange
     rear face to the front wall inner face. Open to the cavity, so the flange rides between the pocket sides and the rails."""
     add_collar_params(des)
+    up = des.userParameters
+    if up.itemByName('bm_hubnotch_z') is None: up.add('bm_hubnotch_z', VI('-1.0 mm'), 'mm', 'Bumper stem hub notch: stem bottom z behind the wall')
     sk = comp.sketches.add(comp.xZConstructionPlane); sk.name = 'Bumper fill pocket'
-    rect4(sk, des, '-(bm_fl_w / 2 + bm_pk_clr)', 'bm_fl_w / 2 + bm_pk_clr', '-(3 mm)', '-(bm_fl_nz) + bm_pk_clr')   # z from bm_fl_nz - clr up to 3
+    rect4(sk, des, '-(bm_fl_w / 2 + bm_pk_clr)', 'bm_fl_w / 2 + bm_pk_clr', '-(3 mm)', '-(bm_hubnotch_z) + bm_pk_clr')   # z from the stem bottom behind the wall (-1.0) less clr, up to 3
     return ext(comp, all_profiles(sk), 'bm_wall_in_y - bm_col_y0', FE.CutFeatureOperation, 'Bumper fill pocket', start='bm_col_y0', target=target)
 
 
