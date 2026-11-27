@@ -3956,3 +3956,17 @@ def build_bay_neg_channel(c, des, body):
     rect4(sk, des, '-bay_nch_hw', 'bay_nch_hw', '-0.5 mm', 'bay_nch_zb')       # xZ sketch: y = -z, so z +0.5 .. -bay_nch_zb
     return ext(c, all_profiles(sk), 'bay_nch_d + 0.1 mm', FE.CutFeatureOperation, 'Bay negative solder channel',
                start='bay_front_y - bay_blk_t - bay_nch_d', target=body)
+
+
+# ---------------------------------------------------------------- bumper: button without the exterior cap, 2026-11-27 ----
+# The outer cap flange is gone (hard to print, Jess). The button is now like the side buttons: inner flange pocketed in the wall, and
+# the stem is the button, passing through the slot and standing bm_proud (2 mm, side buttons are 1 mm, so it is easier to find by feel)
+# proud of the front skin, with a generous end fillet. Prints on the wide flange side with the stem up. Edit made in place on the Bumper
+# component (cap sketch/extrude/fillet deleted, 'Bumper stem' length driven by bm_cap_out_y); this adds the end fillet.
+def build_bumper_end_fillet(comp, des, name='Button end fillet', r='bm_end_fillet'):
+    add_bm_params(des)
+    up = des.userParameters
+    if up.itemByName('bm_end_fillet') is None:
+        up.add('bm_end_fillet', VI('1.2 mm'), 'mm', 'bumper button end face edge fillet')
+    body = comp.bRepBodies.item(0)
+    return fillet_face_edges(comp, _face_y(body, ev_cm(des, "bm_cap_out_y"), 1), r, name)
