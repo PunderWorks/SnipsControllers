@@ -3871,3 +3871,88 @@ def build_ear_backing(c, des, body, p='pt'):
 #   -> 0.25 mm printability chamfer on the backing plate edge (face x 6.60..6.85, y 19.02..20.83, z -7.28..-5.99), plus the extra 1 mm backing/ear extrudes.
 # Trigger_Pouch: Ear backing is 2 mm (pt_ear_back_t, now the default for p='pt'), Chamfer4, Extrude20/21 (hook pocket cleared through the ear to match Trigger).
 # Rebuild order: scripted features first, then redo these by hand and compare Trigger vs Trigger_Pouch.
+
+
+# ---------------------------------------------------------------------------
+# TRIGGER LEFT TRIM (2026-11-27): the trigger has to move about 1 mm toward -X while it is being fitted, to get its right-hand ear
+# past the BottomShell overhang (collides from a 4 mm lift; clear with a 1.0 mm shift). Trim the left flat 1.2 mm (1.0 + 0.2 mm).
+# New left face at x trig_left_x1 / pt_left_x1 (was -9.45).
+def add_left_trim_params(des):
+    up = des.userParameters
+    for n, e in (('trig_left_x1', '-8.25 mm'), ('pt_left_x1', '-8.25 mm')):
+        if up.itemByName(n) is None: up.add(n, VI(e), 'mm', 'left face of the trigger after the install-clearance trim')
+
+
+def build_trigger_left_trim(c, des, body, p='trig'):
+    add_left_trim_params(des)
+    sk = c.sketches.add(c.yZConstructionPlane); sk.name = '%s left trim' % ('Trigger' if p == 'trig' else 'Pouch trigger')
+    rect4(sk, des, '-3 mm', '20 mm', '10 mm', '35 mm')   # sketch x = -z: covers z -20..3 mm; y 10..35
+    return ext(c, all_profiles(sk), '%s_left_x1 + 12 mm' % p, FE.CutFeatureOperation, '%s left trim' % p, start='-12 mm', target=body)
+
+
+# ---------------------------------------------------------------- front (spring) contact ridge, 2026-11-27 ----
+# Same idea as the rear clip's hand-made ridge (bottom + left + right lip on the cell-side face of the plate), mirrored for the front
+# block: a U-shaped frame 0.5 mm thick in front of the block's cell-side face (y bay_front_y - bay_blk_t), lips 0.5 mm in from the pocket
+# cheeks, bottom lip 1.0 mm up from the pocket floor. Sides run up to the bay ceiling, where they fuse. Standard shell only.
+FR_RIDGE_PARAMS = [
+    ('bay_fr_ridge_t', '0.5 mm', 'front contact ridge thickness (y), in front of the block face'),
+    ('bay_fr_ridge_in', '0.5 mm', 'front contact ridge: inward protrusion from the pocket inner face'),
+    ('bay_fr_ridge_out', '6.4 mm', 'front contact ridge: outer half width (fuses into the pocket cheeks and floor)'),
+    ('bay_fr_ridge_zb', '15.5 mm', 'front contact ridge: bottom, depth below the seam (embedded in the trench floor)'),
+    ('bay_fr_ridge_zt', '14.3 mm', 'front contact ridge: bottom lip top, depth below the seam (1.0 mm above the pocket floor)'),
+    ('bay_fr_ridge_zs', '5.2 mm', 'front contact ridge: side lips top, depth below the seam (fuses into the bay ceiling at 5.34)'),
+]
+
+
+def build_bay_front_ridge(c, des, body):
+    add_bay_params(des)
+    up = des.userParameters
+    for n, e, cm in FR_RIDGE_PARAMS:
+        if up.itemByName(n) is None: up.add(n, VI(e), 'mm', cm)
+    xi = '(bay_blk_w / 2 + bay_hold_clr - bay_fr_ridge_in)'
+    sk = c.sketches.add(c.xZConstructionPlane); sk.name = 'Bay front ridge'
+    poly_pts(sk, des, [('-bay_fr_ridge_out', 'bay_fr_ridge_zb'), ('bay_fr_ridge_out', 'bay_fr_ridge_zb'),
+                       ('bay_fr_ridge_out', 'bay_fr_ridge_zs'), (xi, 'bay_fr_ridge_zs'),
+                       (xi, 'bay_fr_ridge_zt'), ('-' + xi, 'bay_fr_ridge_zt'),
+                       ('-' + xi, 'bay_fr_ridge_zs'), ('-bay_fr_ridge_out', 'bay_fr_ridge_zs')])
+    return ext(c, all_profiles(sk), 'bay_fr_ridge_t', FE.JoinFeatureOperation, 'Bay front ridge',
+               start='bay_front_y - bay_blk_t - bay_fr_ridge_t', target=body)
+
+
+# ---------------------------------------------------------------- battery contact solder clearance, 2026-11-27 ----
+# 5. Positive (rear) contact: its tab is bent 90 deg and lies on the top of the housing, with the wire soldered to it. The slab there is
+#    only about 0.3 mm thick, so open a slot through it (Jess's call): the tab, wire and solder drop into the bay side instead.
+# 6. Negative (front) contact: the solder bulb comes out of the plate's top hole (x 0, z -3.6) on the cell side, into the solid bay ceiling
+#    that sits right against the plate. Cut a vertical channel through the ceiling in front of the hole, open at the seam.
+SOLDER_PARAMS = [
+    ('bay_pslot_hw', '2.2 mm', 'positive tab slot half width (tab is 3 mm wide)'),
+    ('bay_pslot_len', '4 mm', 'positive tab slot length, from just past the rear plate'),
+    ('bay_pslot_off', '0.6 mm', 'positive tab slot start, forward of bay_clip_y'),
+    ('bay_pslot_zb', '3 mm', 'positive tab slot bottom, depth below the seam'),
+    ('bay_nch_hw', '1.6 mm', 'negative solder channel half width (hole r 0.79, bulb up to 3 mm)'),
+    ('bay_nch_d', '1.4 mm', 'negative solder channel depth, cell side of the plate face'),
+    ('bay_nch_zb', '5.5 mm', 'negative solder channel bottom, depth below the seam (clears the ceiling underside at 5.34)'),
+]
+
+
+def add_solder_params(des):
+    add_bay_params(des)
+    up = des.userParameters
+    for n, e, cm in SOLDER_PARAMS:
+        if up.itemByName(n) is None: up.add(n, VI(e), 'mm', cm)
+
+
+def build_bay_pos_slot(c, des, body):
+    add_solder_params(des)
+    sk = c.sketches.add(c.xYConstructionPlane); sk.name = 'Bay positive tab slot'
+    rect4(sk, des, '-bay_pslot_hw', 'bay_pslot_hw', 'bay_clip_y + bay_pslot_off', 'bay_clip_y + bay_pslot_off + bay_pslot_len')
+    return ext(c, all_profiles(sk), 'bay_pslot_zb + 0.5 mm', FE.CutFeatureOperation, 'Bay positive tab slot', neg=True,
+               start='0.5 mm', target=body)
+
+
+def build_bay_neg_channel(c, des, body):
+    add_solder_params(des)
+    sk = c.sketches.add(c.xZConstructionPlane); sk.name = 'Bay negative solder channel'
+    rect4(sk, des, '-bay_nch_hw', 'bay_nch_hw', '-0.5 mm', 'bay_nch_zb')       # xZ sketch: y = -z, so z +0.5 .. -bay_nch_zb
+    return ext(c, all_profiles(sk), 'bay_nch_d + 0.1 mm', FE.CutFeatureOperation, 'Bay negative solder channel',
+               start='bay_front_y - bay_blk_t - bay_nch_d', target=body)
