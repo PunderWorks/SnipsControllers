@@ -4272,3 +4272,69 @@ def build_oled_bar_clip(comp, des, body):
     rect4(sk, des, 'oledbar_pc_lip_x0', 'oledbar_pc_x1', 'oledbar_pc_y0', 'oledbar_pc_y0 + oledbar_pc_w')
     return ext(comp, all_profiles(sk), 'oledbar_pc_lip_h + 0.1 mm', FE.JoinFeatureOperation, 'OLED bar clip lip',
                start='%s + oledbar_pc_t - 0.1 mm' % za, target=body)
+
+
+# ---------------------------------------------------------------- wire retention in the lower shell, 2026-11-27 (print test 4, item 3) ----
+# Wires: the 2-pin JST (under the PCB, right-rear, mating face toward +y) takes the positive wire (rear contact) and the negative wire
+# (front contact, out through the bulkhead V notch). The u.fl antenna wire leaves the XBee carrier on the left, runs forward along the
+# left gap, crosses in front of the bulkhead and comes back along the right gap.
+# Lane: the gaps between the cell cradle and the side walls have a horizontal rib (the shelf, top z -6.75, x 8.5..12.5 over the vertical
+# cradle wall x 11..12.5). Wires lie on the shelf between the sloped channel wall and a post; the post carries a tooth over the wire.
+# Front: the bulkhead front face (y 11.9) gets a ledge below the wire hole exit; the trigger pulls back to y 14.4 so it stays inside 14.3.
+# (The positive wire reaches the JST through the 1.5..2.5 mm lane between the channel wall and the right rear post, above z -3.)
+WIRERET_PARAMS = [
+    ('wr_len', '2.5 mm', 'hook length along y'),
+    ('wr_px0', '11.0 mm', 'hook post inner face x (wire side), over the vertical cradle wall'),
+    ('wr_px1', '12.4 mm', 'hook post outer face x'),
+    ('wr_pz0', '-6.9 mm', 'hook post bottom z (0.15 mm into the shelf)'),
+    ('wr_tz0', '-2.6 mm', 'tooth underside z (lane height above the shelf is 4.15 mm: two 22 AWG wires stacked plus the coax beside them)'),
+    ('wr_tz1', '-2.0 mm', 'tooth top z'),
+    ('wr_tx', '9.0 mm', 'tooth tip x (throat to the sloped channel wall is about 2.3 mm)'),
+    ('wr_y1', '-19 mm', 'hook 1 start y'),
+    ('wr_y2', '-9 mm', 'hook 2 start y'),
+    ('wr_y3', '1 mm', 'hook 3 start y'),
+    ('wr_y4', '9 mm', 'hook 4 start y'),
+    ('wr_fl_x', '12.4 mm', 'front ledge half width'),
+    ('wr_fl_y0', 'bay_front_y + 1.55 mm', 'front ledge start y (0.1 mm into the bulkhead wall front face at y 11.9... wall face is bay_front_y + 1.65)'),
+    ('wr_fl_y1', 'bay_front_y + 4.05 mm', 'front ledge end y (trigger pulled 20 deg reaches y 14.39)'),
+    ('wr_fl_zt', '-9.4 mm', 'front ledge top z (below the wire hole exit at the cell axis)'),
+    ('wr_fl_zb', '-10.9 mm', 'front ledge bottom z'),
+    ('wr_lip_x0', '8.0 mm', 'front lip inner x (centre stays open for the negative wire exit)'),
+    ('wr_lip_y0', 'bay_front_y + 3.45 mm', 'front lip start y'),
+    ('wr_lip_zt', '-7.6 mm', 'front lip top z'),
+]
+
+
+def add_wireret_params(des):
+    add_bay_params(des)
+    up = des.userParameters
+    for n, e, cm in WIRERET_PARAMS:
+        pr = up.itemByName(n)
+        if pr is None: up.add(n, VI(e), 'mm', cm)
+        else: pr.expression = e
+
+
+def build_wire_hooks(c, des, body):
+    """Hooks (post + tooth) on the shelf in both side gaps, at wr_y1..wr_y4."""
+    add_wireret_params(des)
+    sk = c.sketches.add(c.xZConstructionPlane); sk.name = 'Wire hooks'
+    for s in (1, -1):
+        X = (lambda e: '(%s)' % e) if s > 0 else (lambda e: '-(%s)' % e)
+        poly_pts(sk, des, [(X('wr_px0'), '-(wr_pz0)'), (X('wr_px1'), '-(wr_pz0)'), (X('wr_px1'), '-(wr_tz1)'),
+                           (X('wr_tx'), '-(wr_tz1)'), (X('wr_tx'), '-(wr_tz0)'), (X('wr_px0'), '-(wr_tz0)')])
+    last = None
+    for i in (1, 2, 3, 4):
+        last = ext(c, all_profiles(sk), 'wr_len', FE.JoinFeatureOperation, 'Wire hooks %d' % i, start='wr_y%d' % i, target=body)
+    return last
+
+
+def build_wire_ledge(c, des, body):
+    """Ledge across the front of the bulkhead for the antenna cable and the negative wire, with a low lip at each side."""
+    add_wireret_params(des)
+    sk = c.sketches.add(c.xZConstructionPlane); sk.name = 'Wire front ledge'
+    rect4(sk, des, '-wr_fl_x', 'wr_fl_x', '-(wr_fl_zt)', '-(wr_fl_zb)')
+    ext(c, all_profiles(sk), 'wr_fl_y1 - wr_fl_y0', FE.JoinFeatureOperation, 'Wire front ledge', start='wr_fl_y0', target=body)
+    sk = c.sketches.add(c.xZConstructionPlane); sk.name = 'Wire front lips'
+    rect4(sk, des, 'wr_lip_x0', 'wr_fl_x', '-(wr_lip_zt)', '-(wr_fl_zt) + 0.1 mm')
+    rect4(sk, des, '-wr_fl_x', '-wr_lip_x0', '-(wr_lip_zt)', '-(wr_fl_zt) + 0.1 mm')
+    return ext(c, all_profiles(sk), 'wr_fl_y1 - wr_lip_y0', FE.JoinFeatureOperation, 'Wire front lips', start='wr_lip_y0', target=body)
