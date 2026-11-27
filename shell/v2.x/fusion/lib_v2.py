@@ -3728,8 +3728,8 @@ def build_bay_wire_hole(c, des, body):
 # 2. Wire notch through the front bulkhead wall: the wire leaves the hole above and runs up this V-flanked slot, lying inside the wall
 #    thickness (y <= bay_front_y + 1.4) so the trigger lobe (rearmost y 11.78 at full pull) never meets it.
 WIRE_NOTCH_PARAMS = [
-    ('bay_wnotch_front_off', '1.4 mm', 'notch front face: offset from bay_front_y (the bulkhead wall front face)'),
-    ('bay_wnotch_depth', '1.3 mm', 'notch depth, cut rearward from the wall front face'),
+    ('bay_wnotch_front_off', '1.75 mm', 'notch start: offset from bay_front_y, 0.1 mm in front of the wall front face (y 11.9 after the item 4 shift) so the cut goes right through'),
+    ('bay_wnotch_depth', '1.85 mm', 'notch depth, cut rearward through the whole wall (0.1 mm past the rear face)'),
     ('bay_wnotch_top_z', '1.5 mm', 'notch top: depth below the seam (z = -this), open to the top edge'),
     ('bay_wnotch_hw', '6 mm', 'notch half-width at the top (V flanks widen up to this)'),
     ('bay_wnotch_fx', '1.735 mm', 'flank start: half-width where the flank leaves the wire hole circle'),
@@ -4083,6 +4083,33 @@ def build_bumper_hub_notch(comp, des, body):
     rect4(sk, des, '-(bm_fl_w / 2 + 1 mm)', 'bm_fl_w / 2 + 1 mm', '-(bm_hubnotch_z)', '6 mm')    # z from bm_hubnotch_z down to -6
     return ext(comp, main_profile(sk), 'bm_hubnotch_y1 - (bm_fl_out_y - 0.2 mm)', FE.CutFeatureOperation, 'Bumper hub notch',
                start='bm_fl_out_y - 0.2 mm', target=body)
+
+
+# Contact install relief (Jess's hand cut, Extrude137, 2026-11-27): the front contact holder's cheek tops are undercut below a 1.5 mm ledge so the
+# positive contact slides in with less force. Each side removes x 1.6..6.43, y 7.96..8.7, z -5.4..-3.9, except the lip x 5.0..6.4, y 8.3..8.7.
+CONTACT_RELIEF_PARAMS = [
+    ('bay_cr_x0', '1.6 mm', 'contact install relief: inner x edge (each side)'),
+    ('bay_cr_x1', '6.43 mm', 'contact install relief: outer x edge'),
+    ('bay_cr_lip_x0', '5.0 mm', 'contact install relief: lip kept at x lip_x0..6.4, y >= lip_y'),
+    ('bay_cr_y0', '7.96 mm', 'contact install relief: rear y'),
+    ('bay_cr_lip_y', '8.3 mm', 'contact install relief: lip start y'),
+    ('bay_cr_y1', '8.7 mm', 'contact install relief: front y'),
+    ('bay_cr_z0', '-5.4 mm', 'contact install relief: bottom z (ceiling is bay_cr_z0 + bay_cr_h)'),
+    ('bay_cr_h', '1.5 mm', 'contact install relief: height'),
+]
+
+
+def build_contact_install_relief(c, des, body):
+    up = des.userParameters
+    for n, e, cm in CONTACT_RELIEF_PARAMS:
+        if up.itemByName(n) is None: up.add(n, VI(e), 'mm', cm)
+    sk = c.sketches.add(c.xYConstructionPlane); sk.name = 'Contact install relief'
+    for s_ in (1, -1):
+        sg = '' if s_ > 0 else '-'
+        pts = [('x0', 'y0'), ('x1', 'y0'), ('x1', 'ly'), ('lx', 'ly'), ('lx', 'y1'), ('x0', 'y1')]
+        m = {'x0': 'bay_cr_x0', 'x1': 'bay_cr_x1', 'lx': 'bay_cr_lip_x0', 'y0': 'bay_cr_y0', 'ly': 'bay_cr_lip_y', 'y1': 'bay_cr_y1'}
+        poly_pts(sk, des, [('%s(%s)' % (sg, m[a]) if a.startswith(('x', 'l')) else m[a], m[b]) for a, b in pts])
+    return ext(c, all_profiles(sk), 'bay_cr_h', FE.CutFeatureOperation, 'Contact install relief', start='bay_cr_z0', target=body)
 
 
 # ---------------------------------------------------------------- pivot column fill (item 4: pivot moved 2 mm forward)
